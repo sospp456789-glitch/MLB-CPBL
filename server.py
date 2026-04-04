@@ -16,10 +16,15 @@ app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 TW = timezone(timedelta(hours=8))
+ET = timezone(timedelta(hours=-4))   # US Eastern (EDT)
 
 def now_tw():
     """Current datetime in Taiwan time (UTC+8)."""
     return datetime.now(tz=TW)
+
+def now_et():
+    """Current datetime in US Eastern time (EDT, UTC-4) — used for MLB date queries."""
+    return datetime.now(tz=ET)
 
 # ── LINE 設定 ─────────────────────────────────────────────────────────────────
 LINE_SECRET = os.environ.get('LINE_SECRET', '46daa5248c461e26c987c9803635c2e0')
@@ -366,7 +371,7 @@ def scrape_games(year=None):
 
 
 def scrape_mlb_standings(year=None):
-    year = year or str(now_tw().year)
+    year = year or str(now_et().year)
     try:
         url = f'https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season={year}&standingsType=regularSeason'
         r = requests.get(url, timeout=15)
@@ -411,7 +416,7 @@ def scrape_mlb_standings(year=None):
 
 
 def scrape_mlb_games(date=None):
-    date = date or now_tw().strftime('%Y-%m-%d')
+    date = date or now_et().strftime('%Y-%m-%d')
     try:
         url = f'https://statsapi.mlb.com/api/v1/schedule?sportId=1&date={date}'
         r = requests.get(url, timeout=15)
@@ -497,7 +502,7 @@ def check_game_changes(new_games):
 def check_mlb_game_changes(new_games):
     """MLB 比賽終場推播"""
     global prev_mlb_game_states
-    today = now_tw().strftime('%Y-%m-%d')
+    today = now_et().strftime('%Y-%m-%d')
     for g in new_games:
         key = f"{today}_{g['away_team']}_{g['home_team']}"
         old = prev_mlb_game_states.get(key)
@@ -572,9 +577,9 @@ def get_mlb_schedule_text():
         games = mlb_store.get('games', [])
     if not games:
         return '今日無 MLB 賽事'
-    today = now_tw().strftime('%Y/%m/%d')
+    today = now_et().strftime('%Y/%m/%d')
     weekdays = ['一','二','三','四','五','六','日']
-    wd = weekdays[now_tw().weekday()]
+    wd = weekdays[now_et().weekday()]
     lines = [f'🇺🇸 MLB 今日賽程　{today}（週{wd}）\n']
     for g in games:
         if g['is_final']:

@@ -528,7 +528,10 @@ def get_cpbl_schedule_text():
         games = data_store.get('games', [])
     if not games:
         return '今日無 CPBL 賽事'
-    lines = ['⚾ CPBL 今日賽程\n']
+    today = datetime.now().strftime('%Y/%m/%d')
+    weekdays = ['一','二','三','四','五','六','日']
+    wd = weekdays[datetime.now().weekday()]
+    lines = [f'⚾ CPBL 今日賽程　{today}（週{wd}）\n']
     for g in games:
         if g['is_final']:
             status = f"終場　{g['visit_score']} - {g['home_score']}"
@@ -548,7 +551,10 @@ def get_mlb_schedule_text():
         games = mlb_store.get('games', [])
     if not games:
         return '今日無 MLB 賽事'
-    lines = ['🇺🇸 MLB 今日賽程\n']
+    today = datetime.now().strftime('%Y/%m/%d')
+    weekdays = ['一','二','三','四','五','六','日']
+    wd = weekdays[datetime.now().weekday()]
+    lines = [f'🇺🇸 MLB 今日賽程　{today}（週{wd}）\n']
     for g in games:
         if g['is_final']:
             status = f"終場　{g['away_score']} - {g['home_score']}"

@@ -549,6 +549,9 @@
     <button class="tab" onclick="switchTab('fielding', this)">守備成績</button>
   </div>
 
+  <!-- Error Banner -->
+  <div id="cpblErrorBanner" style="display:none;background:#3a1a1a;color:#ff8080;padding:8px 16px;border-radius:6px;margin-bottom:12px;font-size:0.85rem;"></div>
+
   <!-- Standings Tab -->
   <div class="tab-content active" id="tab-standings">
     <div class="table-wrap">
@@ -798,16 +801,19 @@ function renderGames(games) {
 
 // ── Fetch & render ────────────────────────────────────────────────────────────
 function applyData(data) {
+  // Show error banner if any, but still render whatever cached data exists
+  const errBanner = document.getElementById('cpblErrorBanner');
   if (data.error) {
-    document.getElementById('standingsTbody').innerHTML =
-      `<tr><td colspan="12" class="notice error">錯誤：${data.error}</td></tr>`;
+    errBanner.textContent = '⚠️ ' + data.error;
+    errBanner.style.display = 'block';
   } else {
-    renderStandings(data.standings);
-    renderCards(data.standings);
-    renderStatTable('pitchingWrap', data.pitch_cols, data.pitching);
-    renderStatTable('battingWrap',  data.bat_cols,   data.batting);
-    renderStatTable('fieldingWrap', data.field_cols, data.fielding);
+    errBanner.style.display = 'none';
   }
+  renderStandings(data.standings);
+  renderCards(data.standings);
+  renderStatTable('pitchingWrap', data.pitch_cols, data.pitching);
+  renderStatTable('battingWrap',  data.bat_cols,   data.batting);
+  renderStatTable('fieldingWrap', data.field_cols, data.fielding);
   renderGames(data.games || []);
   document.getElementById('lastUpdated').textContent =
     data.last_updated ? '更新：' + data.last_updated : '';

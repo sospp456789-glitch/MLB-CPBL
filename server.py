@@ -259,9 +259,15 @@ def scrape_all(year=None, season=None):
         return True
 
     except Exception as e:
+        err_msg = str(e)
+        # Give a friendlier message for geo-blocked 404s
+        if '404' in err_msg or 'Not Found' in err_msg:
+            friendly = 'CPBL 伺服器暫時無法連線（可能為 IP 地區限制），顯示舊資料'
+        else:
+            friendly = f'CPBL 資料更新失敗：{err_msg}'
         with data_lock:
-            data_store['error'] = str(e)
-        print(f"[ERROR] {e}")
+            data_store['error'] = friendly
+        print(f"[ERROR scrape_all] {e}")
         return False
 
 

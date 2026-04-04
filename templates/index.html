@@ -153,6 +153,15 @@
   .streak-lose { background: rgba(239,68,68,.15);  color: var(--red); }
 
   /* ── Today's Games ── */
+  .games-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+  @media (max-width: 900px) {
+    .games-two-col { grid-template-columns: 1fr; }
+  }
+
   .games-section {
     padding: 20px 24px 0;
   }
@@ -533,11 +542,19 @@
   <!-- Team Summary Cards -->
   <div class="team-cards" id="teamCards"></div>
 
-  <!-- Today's Games -->
-  <div class="games-section">
-    <div class="games-title">&#9632; 今日賽事 <span id="gamesDate" style="font-weight:400;color:var(--muted)"></span></div>
-    <div class="games-grid" id="gamesGrid">
-      <div class="no-games">載入中...</div>
+  <!-- Today's + Tomorrow's Games -->
+  <div class="games-two-col">
+    <div class="games-section">
+      <div class="games-title">&#9632; 今日賽事 <span id="gamesDate" style="font-weight:400;color:var(--muted)"></span></div>
+      <div class="games-grid" id="gamesGrid">
+        <div class="no-games">載入中...</div>
+      </div>
+    </div>
+    <div class="games-section">
+      <div class="games-title">&#9632; 明日賽事 <span id="tomorrowDate" style="font-weight:400;color:var(--muted)"></span></div>
+      <div class="games-grid" id="tomorrowGrid">
+        <div class="no-games">載入中...</div>
+      </div>
     </div>
   </div>
 
@@ -735,19 +752,12 @@ function renderStatTable(wrapId, cols, rows) {
     </table>`;
 }
 
-// ── Render today's games ──────────────────────────────────────────────────────
-function renderGames(games) {
-  const grid = document.getElementById('gamesGrid');
-  const dateEl = document.getElementById('gamesDate');
-  const today = new Date().toLocaleDateString('zh-TW', {month:'numeric', day:'numeric', weekday:'short'});
-  dateEl.textContent = today;
-
+// ── Render games (shared for today & tomorrow) ────────────────────────────────
+function buildGameCards(games, isTomorrow) {
   if (!games || games.length === 0) {
-    grid.innerHTML = '<div class="no-games">今日無賽事</div>';
-    return;
+    return `<div class="no-games">${isTomorrow ? '明日無賽事' : '今日無賽事'}</div>`;
   }
-
-  grid.innerHTML = games.map(g => {
+  return games.map(g => {
     let statusClass = 'sched', statusLabel = '', dotColor = 'var(--muted)';
     if (g.is_postponed) {
       statusClass = 'sched'; statusLabel = '延賽'; dotColor = 'var(--muted)';
@@ -799,6 +809,17 @@ function renderGames(games) {
   }).join('');
 }
 
+function renderGames(games, tomorrowGames) {
+  const fmt = d => d.toLocaleDateString('zh-TW', {month:'numeric', day:'numeric', weekday:'short'});
+  const today    = new Date();
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+
+  document.getElementById('gamesDate').textContent    = fmt(today);
+  document.getElementById('tomorrowDate').textContent = fmt(tomorrow);
+  document.getElementById('gamesGrid').innerHTML    = buildGameCards(games, false);
+  document.getElementById('tomorrowGrid').innerHTML = buildGameCards(tomorrowGames, true);
+}
+
 // ── Fetch & render ────────────────────────────────────────────────────────────
 function applyData(data) {
   // Show error banner if any, but still render whatever cached data exists
@@ -814,7 +835,7 @@ function applyData(data) {
   renderStatTable('pitchingWrap', data.pitch_cols, data.pitching);
   renderStatTable('battingWrap',  data.bat_cols,   data.batting);
   renderStatTable('fieldingWrap', data.field_cols, data.fielding);
-  renderGames(data.games || []);
+  renderGames(data.games || [], data.tomorrow_games || []);
   document.getElementById('lastUpdated').textContent =
     data.last_updated ? '更新：' + data.last_updated : '';
 }

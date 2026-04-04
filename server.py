@@ -45,6 +45,7 @@ data_store = {
     'batting': [],
     'fielding': [],
     'games': [],          # today's games
+    'tomorrow_games': [],  # tomorrow's games
     'last_updated': None,
     'games_updated': None,
     'error': None,
@@ -272,7 +273,8 @@ def scrape_all(year=None, season=None):
 
 
 def scrape_games(year=None):
-    """Fetch all games for the year and return today's matches."""
+    """Fetch all games for the year and return today's + tomorrow's matches."""
+    from datetime import timedelta
     year = year or str(datetime.now().year)
     try:
         session = requests.Session()
@@ -305,19 +307,13 @@ def scrape_games(year=None):
             raise ValueError('API returned Success=false')
 
         all_games = json.loads(result['GameDatas'])
-        today_str = datetime.now().strftime('%Y-%m-%d')
+        today_str    = datetime.now().strftime('%Y-%m-%d')
+        tomorrow_str = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
 
-        today_games = []
-        for g in all_games:
-            gdate = g.get('GameDate', '')[:10]
-            if gdate != today_str:
-                continue
-
-            status = g.get('GameResult', '')   # '0'=final, ''=scheduled, '2'=postponed
-            is_final = (status == '0')
-            is_postponed = (status == '2')
-
-            today_games.append({
+        def build_game(g):
+            gdate  = g.get('GameDate', '')[:10]
+            status = g.get('GameResult', '')   # '0'=final, '2'=postponed
+            return {
                 'sno':          g.get('GameSno'),
                 'date':         gdate,
                 'time':         g.get('PreExeDate', '')[-8:-3] if g.get('PreExeDate') else '',
@@ -326,8 +322,8 @@ def scrape_games(year=None):
                 'home_team':    g.get('HomeTeamName', ''),
                 'visit_score':  g.get('VisitingScore'),
                 'home_score':   g.get('HomeScore'),
-                'is_final':     is_final,
-                'is_postponed': is_postponed,
+                'is_final':     status == '0',
+                'is_postponed': status == '2',
                 'is_live':      g.get('IsPlayBall') == 'Y',
                 'win_pitcher':    g.get('WinningPitcherName', ''),
                 'lose_pitcher':   g.get('LoserPitcherName', ''),
@@ -337,14 +333,18 @@ def scrape_games(year=None):
                 'home_starter':   g.get('HomePitcherName', ''),
                 'visit_color':  TEAM_INFO.get(g.get('VisitingTeamName', ''), {}).get('color', '#555'),
                 'home_color':   TEAM_INFO.get(g.get('HomeTeamName', ''),     {}).get('color', '#555'),
-            })
+            }
+
+        today_games    = [build_game(g) for g in all_games if g.get('GameDate', '')[:10] == today_str]
+        tomorrow_games = [build_game(g) for g in all_games if g.get('GameDate', '')[:10] == tomorrow_str]
 
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         with data_lock:
-            data_store['games']         = today_games
-            data_store['games_updated'] = now
+            data_store['games']          = today_games
+            data_store['tomorrow_games'] = tomorrow_games
+            data_store['games_updated']  = now
 
-        print(f"[{now}] Games updated — {len(today_games)} games today")
+        print(f"[{now}] Games updated — today:{len(today_games)}, tomorrow:{len(tomorrow_games)}")
         return True
 
     except Exception as e:

@@ -523,16 +523,84 @@ def webhook():
         abort(400)
     return 'OK'
 
+def get_cpbl_schedule_text():
+    with data_lock:
+        games = data_store.get('games', [])
+    if not games:
+        return '今日無 CPBL 賽事'
+    lines = ['⚾ CPBL 今日賽程\n']
+    for g in games:
+        if g['is_final']:
+            status = f"終場　{g['visit_score']} - {g['home_score']}"
+        elif g['is_live']:
+            status = '進行中'
+        else:
+            status = f"🕐 {g['time']} 開打"
+        lines.append(f"{g['visit_team']} vs {g['home_team']}")
+        lines.append(f"{status}　📍{g['field']}\n")
+    lines.append(f"📊 {data_store.get('last_updated','')[:10]}")
+    lines.append('https://web-production-d5d20.up.railway.app')
+    return '\n'.join(lines)
+
+
+def get_mlb_schedule_text():
+    with mlb_lock:
+        games = mlb_store.get('games', [])
+    if not games:
+        return '今日無 MLB 賽事'
+    lines = ['🇺🇸 MLB 今日賽程\n']
+    for g in games:
+        if g['is_final']:
+            status = f"終場　{g['away_score']} - {g['home_score']}"
+        elif g['is_live']:
+            status = g.get('status', '進行中')
+        else:
+            status = f"🕐 {g['time']}"
+        lines.append(f"{g['away_team']} @ {g['home_team']}")
+        lines.append(f"{status}\n")
+    lines.append('https://web-production-d5d20.up.railway.app')
+    return '\n'.join(lines)
+
+
 @line_handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
     uid = event.source.user_id
     line_user_ids.add(uid)
-    print(f"[LINE] User registered: {uid}")
+    text = event.message.text.strip()
+
+    cpbl_keywords = ['cpbl', '中華職棒', '台灣', '職棒']
+    mlb_keywords  = ['mlb', '美國職棒', '大聯盟']
+
+    if any(k in text.lower() for k in cpbl_keywords):
+        reply = get_cpbl_schedule_text()
+    elif any(k in text.lower() for k in mlb_keywords):
+        reply = get_mlb_schedule_text()
+    else:
+        # 第一次加入時的歡迎訊息
+        if not hasattr(handle_message, '_welcomed'):
+            handle_message._welcomed = set()
+        if uid not in handle_message._welcomed:
+            handle_message._welcomed.add(uid)
+            reply = (
+                "✅ 職棒看板已綁定！比賽結束時會自動通知你。\n\n"
+                "你可以傳送：\n"
+                "・「CPBL賽程」→ 今日中華職棒\n"
+                "・「MLB賽程」→ 今日美國職棒\n\n"
+                "📊 https://web-production-d5d20.up.railway.app"
+            )
+        else:
+            reply = (
+                "你可以傳送：\n"
+                "・「CPBL賽程」→ 今日中華職棒\n"
+                "・「MLB賽程」→ 今日美國職棒"
+            )
+
+    print(f"[LINE] User: {uid}, msg: {text}")
     with ApiClient(line_config) as api_client:
         api = MessagingApi(api_client)
         api.push_message(PushMessageRequest(
             to=uid,
-            messages=[TextMessage(text=f"✅ 職棒看板已綁定！\n比賽結束時會自動通知你。\n\n📊 查看即時看板：\nhttps://web-production-d5d20.up.railway.app")]
+            messages=[TextMessage(text=reply)]
         ))
 
 @app.route('/debug')

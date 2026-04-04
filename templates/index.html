@@ -231,6 +231,13 @@
   .game-team-dot {
     width: 12px; height: 12px;
     border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .team-logo-sm {
+    width: 32px; height: 32px;
+    object-fit: contain;
+    flex-shrink: 0;
   }
 
   .game-team-name {
@@ -686,7 +693,9 @@ function renderStandings(rows) {
       <td class="${rankClass}">${r.rank}</td>
       <td>
         <div class="td-team">
-          <span class="team-dot" style="background:${r.color}"></span>
+          ${r.logo
+            ? `<img src="${r.logo}" alt="${r.short}" style="width:22px;height:22px;object-fit:contain;flex-shrink:0" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'team-dot',style:'background:${r.color}'}))"> `
+            : `<span class="team-dot" style="background:${r.color}"></span>`}
           <span class="team-label">${r.team}</span>
         </div>
       </td>
@@ -722,6 +731,7 @@ function renderCards(rows) {
   wrap.innerHTML = rows.map(r => `
     <div class="team-card" style="--team-color:${r.color}">
       <div class="card-rank" style="color:${r.color}">${r.rank}</div>
+      ${r.logo ? `<img src="${r.logo}" alt="${r.short}" style="width:48px;height:48px;object-fit:contain;margin:4px auto 0;display:block" onerror="this.style.display='none'">` : ''}
       <div class="card-name">${r.team}</div>
       <div class="card-record">${r.wins} - ${r.losses}</div>
       <div class="card-wr">勝率 ${r.win_rate.toFixed(3)} ／ 勝差 ${r.gb}</div>
@@ -793,13 +803,17 @@ function buildGameCards(games, emptyMsg) {
       </div>
       <div class="game-matchup">
         <div class="game-team">
-          <span class="game-team-dot" style="background:${g.visit_color}"></span>
+          ${g.visit_logo
+            ? `<img class="team-logo-sm" src="${g.visit_logo}" alt="${g.visit_team}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'game-team-dot',style:'background:${g.visit_color}'}))">`
+            : `<span class="game-team-dot" style="background:${g.visit_color}"></span>`}
           <span class="game-team-name">${g.visit_team}</span>
           <span class="game-score ${vWin?'win':'lose'}">${vScore}</span>
         </div>
         <span class="game-vs">VS</span>
         <div class="game-team">
-          <span class="game-team-dot" style="background:${g.home_color}"></span>
+          ${g.home_logo
+            ? `<img class="team-logo-sm" src="${g.home_logo}" alt="${g.home_team}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'game-team-dot',style:'background:${g.home_color}'}))">`
+            : `<span class="game-team-dot" style="background:${g.home_color}"></span>`}
           <span class="game-team-name">${g.home_team}</span>
           <span class="game-score ${hWin?'win':'lose'}">${hScore}</span>
         </div>

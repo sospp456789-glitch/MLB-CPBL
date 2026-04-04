@@ -104,13 +104,14 @@ MLB_TEAM_COLORS = {
     'San Francisco Giants':   {'color': '#FD5A1E', 'accent': '#27251F'},
 }
 
+_WM = 'https://upload.wikimedia.org/wikipedia/en'
 TEAM_INFO = {
-    '統一7-ELEVEn獅': {'short': '統一獅', 'color': '#003087', 'accent': '#F5B400'},
-    '富邦悍將':        {'short': '富邦',   'color': '#003F8A', 'accent': '#E31837'},
-    '味全龍':          {'short': '味全龍', 'color': '#C8102E', 'accent': '#111111'},
-    '台鋼雄鷹':        {'short': '台鋼',   'color': '#1B2A4A', 'accent': '#E4002B'},
-    '中信兄弟':        {'short': '中信',   'color': '#00602A', 'accent': '#FFCC00'},
-    '樂天桃猿':        {'short': '樂天',   'color': '#E4002B', 'accent': '#FFFFFF'},
+    '統一7-ELEVEn獅': {'short': '統一獅', 'color': '#FF6B00', 'accent': '#003087', 'logo': f'{_WM}/8/83/Lions_Logo.png'},
+    '富邦悍將':        {'short': '富邦',   'color': '#0050C8', 'accent': '#E8291C', 'logo': f'{_WM}/b/b6/Fubon_Guardians.png'},
+    '味全龍':          {'short': '味全龍', 'color': '#C8102E', 'accent': '#111111', 'logo': f'{_WM}/9/93/Wei_Chuan_Dragons.png'},
+    '台鋼雄鷹':        {'short': '台鋼',   'color': '#00843D', 'accent': '#1B2A4A', 'logo': f'{_WM}/f/f6/TSG_Hawks.png'},
+    '中信兄弟':        {'short': '中信',   'color': '#F5C518', 'accent': '#1B2A4A', 'logo': f'{_WM}/d/d7/CTBC_Brothers_%28baseball_team%29_logo.png'},
+    '樂天桃猿':        {'short': '樂天',   'color': '#E4002B', 'accent': '#FFFFFF', 'logo': f'{_WM}/8/8b/Rakuten_Monkeys.png'},
 }
 
 def safe_float(s, default=0.0):
@@ -162,7 +163,7 @@ def parse_standings_table(table):
         streak     = tds[-2].text.strip() if len(tds) >= 2 else ''
         last10     = tds[-1].text.strip() if len(tds) >= 1 else ''
 
-        info = TEAM_INFO.get(team_name, {'short': team_name, 'color': '#555', 'accent': '#aaa'})
+        info = TEAM_INFO.get(team_name, {'short': team_name, 'color': '#555', 'accent': '#aaa', 'logo': ''})
 
         results.append({
             'rank':      rank,
@@ -170,6 +171,7 @@ def parse_standings_table(table):
             'short':     info['short'],
             'color':     info['color'],
             'accent':    info['accent'],
+            'logo':      info.get('logo', ''),
             'games':     safe_int(games),
             'wins':      wins,
             'ties':      ties,
@@ -339,6 +341,8 @@ def scrape_games(year=None):
                 'home_starter':   g.get('HomePitcherName', ''),
                 'visit_color':  TEAM_INFO.get(g.get('VisitingTeamName', ''), {}).get('color', '#555'),
                 'home_color':   TEAM_INFO.get(g.get('HomeTeamName', ''),     {}).get('color', '#555'),
+                'visit_logo':   TEAM_INFO.get(g.get('VisitingTeamName', ''), {}).get('logo', ''),
+                'home_logo':    TEAM_INFO.get(g.get('HomeTeamName', ''),     {}).get('logo', ''),
             }
 
         yesterday_str  = (now_tw() - timedelta(days=1)).strftime('%Y-%m-%d')

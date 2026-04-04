@@ -766,7 +766,10 @@ function renderGames(games) {
       <span>敗投：${g.lose_pitcher || '-'}</span>
       ${g.closer ? `<span>終結：${g.closer}</span>` : ''}
       ${g.mvp    ? `<span>MVP：${g.mvp}</span>`     : ''}
-    ` : `<span>場地：${g.field}</span>`;
+    ` : `
+      <span>場地：${g.field}</span>
+      ${g.visit_starter ? `<span>先發：${g.visit_starter} vs ${g.home_starter}</span>` : ''}
+    `;
 
     return `
     <div class="game-card ${statusClass}">

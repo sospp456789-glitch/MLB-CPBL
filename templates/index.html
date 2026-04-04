@@ -545,13 +545,13 @@
   <!-- Today's + Tomorrow's Games -->
   <div class="games-two-col">
     <div class="games-section">
-      <div class="games-title">&#9632; 今日賽事 <span id="gamesDate" style="font-weight:400;color:var(--muted)"></span></div>
+      <div class="games-title">&#9632; <span id="leftGamesTitle">今日賽事</span> <span id="gamesDate" style="font-weight:400;color:var(--muted)"></span></div>
       <div class="games-grid" id="gamesGrid">
         <div class="no-games">載入中...</div>
       </div>
     </div>
     <div class="games-section">
-      <div class="games-title">&#9632; 明日賽事 <span id="tomorrowDate" style="font-weight:400;color:var(--muted)"></span></div>
+      <div class="games-title">&#9632; <span id="rightGamesTitle">明日賽事</span> <span id="tomorrowDate" style="font-weight:400;color:var(--muted)"></span></div>
       <div class="games-grid" id="tomorrowGrid">
         <div class="no-games">載入中...</div>
       </div>
@@ -753,9 +753,9 @@ function renderStatTable(wrapId, cols, rows) {
 }
 
 // ── Render games (shared for today & tomorrow) ────────────────────────────────
-function buildGameCards(games, isTomorrow) {
+function buildGameCards(games, emptyMsg) {
   if (!games || games.length === 0) {
-    return `<div class="no-games">${isTomorrow ? '明日無賽事' : '今日無賽事'}</div>`;
+    return `<div class="no-games">${emptyMsg || '無賽事'}</div>`;
   }
   return games.map(g => {
     let statusClass = 'sched', statusLabel = '', dotColor = 'var(--muted)';
@@ -809,15 +809,49 @@ function buildGameCards(games, isTomorrow) {
   }).join('');
 }
 
-function renderGames(games, tomorrowGames) {
+function renderGames(todayGames, tomorrowGames, yesterdayGames) {
   const fmt = d => d.toLocaleDateString('zh-TW', {month:'numeric', day:'numeric', weekday:'short'});
-  const today    = new Date();
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  const now      = new Date();
+  const today    = new Date(now);
+  const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1);
+  const yesterday= new Date(now); yesterday.setDate(now.getDate() - 1);
 
-  document.getElementById('gamesDate').textContent    = fmt(today);
-  document.getElementById('tomorrowDate').textContent = fmt(tomorrow);
-  document.getElementById('gamesGrid').innerHTML    = buildGameCards(games, false);
-  document.getElementById('tomorrowGrid').innerHTML = buildGameCards(tomorrowGames, true);
+  // Find earliest game start time today (format "HH:MM")
+  let gamesStarted = false;
+  if (todayGames && todayGames.length > 0) {
+    // Games are considered started if any is live or final, OR if current time >= earliest start time
+    const anyActive = todayGames.some(g => g.is_live || g.is_final);
+    if (anyActive) {
+      gamesStarted = true;
+    } else {
+      const earliest = todayGames
+        .map(g => g.time)
+        .filter(t => t && t.includes(':'))
+        .sort()[0];
+      if (earliest) {
+        const [hh, mm] = earliest.split(':').map(Number);
+        const gameStart = new Date(now);
+        gameStart.setHours(hh, mm, 0, 0);
+        gamesStarted = now >= gameStart;
+      }
+    }
+  }
+
+  let leftGames, rightGames, leftDate, rightDate, leftLabel, rightLabel;
+  if (gamesStarted) {
+    leftGames  = todayGames;    leftDate  = today;    leftLabel  = '今日賽事';
+    rightGames = tomorrowGames; rightDate = tomorrow; rightLabel = '明日賽事';
+  } else {
+    leftGames  = yesterdayGames; leftDate  = yesterday; leftLabel  = '昨日賽事';
+    rightGames = todayGames;     rightDate = today;     rightLabel = '今日賽事';
+  }
+
+  document.getElementById('leftGamesTitle').textContent  = leftLabel;
+  document.getElementById('rightGamesTitle').textContent = rightLabel;
+  document.getElementById('gamesDate').textContent    = fmt(leftDate);
+  document.getElementById('tomorrowDate').textContent = fmt(rightDate);
+  document.getElementById('gamesGrid').innerHTML    = buildGameCards(leftGames,  leftLabel  === '昨日賽事' ? '昨日無賽事' : '今日無賽事');
+  document.getElementById('tomorrowGrid').innerHTML = buildGameCards(rightGames, rightLabel === '明日賽事' ? '明日無賽事' : '今日無賽事');
 }
 
 // ── Fetch & render ────────────────────────────────────────────────────────────
@@ -835,7 +869,7 @@ function applyData(data) {
   renderStatTable('pitchingWrap', data.pitch_cols, data.pitching);
   renderStatTable('battingWrap',  data.bat_cols,   data.batting);
   renderStatTable('fieldingWrap', data.field_cols, data.fielding);
-  renderGames(data.games || [], data.tomorrow_games || []);
+  renderGames(data.games || [], data.tomorrow_games || [], data.yesterday_games || []);
   document.getElementById('lastUpdated').textContent =
     data.last_updated ? '更新：' + data.last_updated : '';
 }

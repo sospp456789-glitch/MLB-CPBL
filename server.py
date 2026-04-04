@@ -45,7 +45,8 @@ data_store = {
     'batting': [],
     'fielding': [],
     'games': [],          # today's games
-    'tomorrow_games': [],  # tomorrow's games
+    'tomorrow_games': [],   # tomorrow's games
+    'yesterday_games': [],  # yesterday's games
     'last_updated': None,
     'games_updated': None,
     'error': None,
@@ -335,16 +336,19 @@ def scrape_games(year=None):
                 'home_color':   TEAM_INFO.get(g.get('HomeTeamName', ''),     {}).get('color', '#555'),
             }
 
+        yesterday_str  = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
         today_games    = [build_game(g) for g in all_games if g.get('GameDate', '')[:10] == today_str]
         tomorrow_games = [build_game(g) for g in all_games if g.get('GameDate', '')[:10] == tomorrow_str]
+        yesterday_games= [build_game(g) for g in all_games if g.get('GameDate', '')[:10] == yesterday_str]
 
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         with data_lock:
-            data_store['games']          = today_games
-            data_store['tomorrow_games'] = tomorrow_games
-            data_store['games_updated']  = now
+            data_store['games']           = today_games
+            data_store['tomorrow_games']  = tomorrow_games
+            data_store['yesterday_games'] = yesterday_games
+            data_store['games_updated']   = now
 
-        print(f"[{now}] Games updated — today:{len(today_games)}, tomorrow:{len(tomorrow_games)}")
+        print(f"[{now}] Games updated — yesterday:{len(yesterday_games)}, today:{len(today_games)}, tomorrow:{len(tomorrow_games)}")
         return True
 
     except Exception as e:

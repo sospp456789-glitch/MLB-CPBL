@@ -16,8 +16,8 @@ app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 # ── LINE 設定 ─────────────────────────────────────────────────────────────────
-LINE_SECRET = os.environ.get('LINE_SECRET', 'eecddbd2cd98b199b6a7ead1159a2386')
-LINE_TOKEN  = os.environ.get('LINE_TOKEN',  'Uh3VDbZvMBY5kTTe6sgYR5dhwzCLEFtgEaZemUvs++R6aXrKLOln2Uoey+T8LZ7iHlxFVns8bwoaVDK/78S/nvuXCytIYdOH/OjY3Jmoo2Agkt6q6F0FC8Umc10Z8eZQZCyqLaixSh+2JVAqU3TuqAdB04t89/1O/w1cDnyilFU=')
+LINE_SECRET = os.environ.get('LINE_SECRET', '46daa5248c461e26c987c9803635c2e0')
+LINE_TOKEN  = os.environ.get('LINE_TOKEN',  '9X2wPChNY6eiNhnHjUSYO94+F+yQaNPaZxOkPcBHd+qD9o7srsFTTWY2QGKuEUutOeogLikgmaOQzpsgalAix3+NFD5O79gOaFXtXyqHLSqPrzRhK0tmFEkwNoUZjCUIG+um3789ox9hVk6Ukti90gdB04t89/1O/w1cDnyilFU=')
 line_handler = WebhookHandler(LINE_SECRET)
 line_config  = Configuration(access_token=LINE_TOKEN)
 

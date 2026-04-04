@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, abort
 import os
 import requests
 from bs4 import BeautifulSoup
@@ -7,9 +7,37 @@ import time
 import json
 import re
 from datetime import datetime
+from linebot.v3 import WebhookHandler
+from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, PushMessageRequest, TextMessage
+from linebot.v3.webhooks import MessageEvent, TextMessageContent
+from linebot.v3.exceptions import InvalidSignatureError
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+# ── LINE 設定 ─────────────────────────────────────────────────────────────────
+LINE_SECRET = os.environ.get('LINE_SECRET', 'eecddbd2cd98b199b6a7ead1159a2386')
+LINE_TOKEN  = os.environ.get('LINE_TOKEN',  'Uh3VDbZvMBY5kTTe6sgYR5dhwzCLEFtgEaZemUvs++R6aXrKLOln2Uoey+T8LZ7iHlxFVns8bwoaVDK/78S/nvuXCytIYdOH/OjY3Jmoo2Agkt6q6F0FC8Umc10Z8eZQZCyqLaixSh+2JVAqU3TuqAdB04t89/1O/w1cDnyilFU=')
+line_handler = WebhookHandler(LINE_SECRET)
+line_config  = Configuration(access_token=LINE_TOKEN)
+
+line_user_ids = set()   # 儲存加好友的 User ID
+prev_game_states = {}   # 追蹤比賽狀態變化
+
+def send_line(msg):
+    """推播訊息給所有已加好友的用戶"""
+    if not line_user_ids:
+        return
+    with ApiClient(line_config) as api_client:
+        api = MessagingApi(api_client)
+        for uid in line_user_ids:
+            try:
+                api.push_message(PushMessageRequest(
+                    to=uid,
+                    messages=[TextMessage(text=msg)]
+                ))
+            except Exception as e:
+                print(f"[LINE] push error: {e}")
 
 data_store = {
     'standings': [],
@@ -423,6 +451,25 @@ def scrape_mlb_games(date=None):
         return False
 
 
+def check_game_changes(new_games):
+    """比較新舊比賽狀態，終場時推播通知"""
+    global prev_game_states
+    for g in new_games:
+        key = f"{g['date']}_{g['visit_team']}_{g['home_team']}"
+        old = prev_game_states.get(key)
+        if g['is_final'] and (old is None or not old.get('is_final')):
+            winner = g['visit_team'] if g['visit_score'] > g['home_score'] else g['home_team']
+            msg = (
+                f"⚾ CPBL 終場通知\n"
+                f"{g['visit_team']} {g['visit_score']} - {g['home_score']} {g['home_team']}\n"
+                f"🏆 勝利：{winner}\n"
+                f"勝投：{g['win_pitcher']} ／ 敗投：{g['lose_pitcher']}\n"
+                f"MVP：{g['mvp']}"
+            )
+            send_line(msg)
+        prev_game_states[key] = g
+
+
 def background_updater():
     while True:
         time.sleep(10 * 60)   # every 10 min
@@ -431,11 +478,35 @@ def background_updater():
             s = data_store['season']
         scrape_all(y, s)
         scrape_games(y)
+        with data_lock:
+            check_game_changes(data_store['games'])
         scrape_mlb_standings()
         scrape_mlb_games()
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    signature = request.headers.get('X-Line-Signature', '')
+    body = request.get_data(as_text=True)
+    try:
+        line_handler.handle(body, signature)
+    except InvalidSignatureError:
+        abort(400)
+    return 'OK'
+
+@line_handler.add(MessageEvent, message=TextMessageContent)
+def handle_message(event):
+    uid = event.source.user_id
+    line_user_ids.add(uid)
+    print(f"[LINE] User registered: {uid}")
+    with ApiClient(line_config) as api_client:
+        api = MessagingApi(api_client)
+        api.push_message(PushMessageRequest(
+            to=uid,
+            messages=[TextMessage(text=f"✅ 職棒看板已綁定！\n比賽結束時會自動通知你。\n你的 ID：{uid}")]
+        ))
 
 @app.route('/debug')
 def debug():

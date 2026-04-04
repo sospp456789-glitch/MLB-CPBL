@@ -15,6 +15,12 @@ from linebot.v3.exceptions import InvalidSignatureError
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
+TW = timezone(timedelta(hours=8))
+
+def now_tw():
+    """Current datetime in Taiwan time (UTC+8)."""
+    return datetime.now(tz=TW)
+
 # ── LINE 設定 ─────────────────────────────────────────────────────────────────
 LINE_SECRET = os.environ.get('LINE_SECRET', '46daa5248c461e26c987c9803635c2e0')
 LINE_TOKEN  = os.environ.get('LINE_TOKEN',  '9X2wPChNY6eiNhnHjUSYO94+F+yQaNPaZxOkPcBHd+qD9o7srsFTTWY2QGKuEUutOeogLikgmaOQzpsgalAix3+NFD5O79gOaFXtXyqHLSqPrzRhK0tmFEkwNoUZjCUIG+um3789ox9hVk6Ukti90gdB04t89/1O/w1cDnyilFU=')
@@ -106,12 +112,6 @@ TEAM_INFO = {
     '中信兄弟':        {'short': '中信',   'color': '#00602A', 'accent': '#FFCC00'},
     '樂天桃猿':        {'short': '樂天',   'color': '#E4002B', 'accent': '#FFFFFF'},
 }
-
-TW = timezone(timedelta(hours=8))
-
-def now_tw():
-    """Current datetime in Taiwan time (UTC+8)."""
-    return datetime.now(tz=TW)
 
 def safe_float(s, default=0.0):
     try:

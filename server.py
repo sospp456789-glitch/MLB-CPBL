@@ -466,7 +466,8 @@ def check_game_changes(new_games):
                 f"{g['visit_team']} {g['visit_score']} - {g['home_score']} {g['home_team']}\n"
                 f"🏆 勝利：{winner}\n"
                 f"勝投：{g['win_pitcher']} ／ 敗投：{g['lose_pitcher']}\n"
-                f"MVP：{g['mvp']}"
+                f"MVP：{g['mvp']}\n\n"
+                f"📊 查看完整看板：\nhttps://web-production-d5d20.up.railway.app"
             )
             send_line(msg)
         prev_game_states[key] = g
@@ -487,7 +488,8 @@ def check_mlb_game_changes(new_games):
                 f"🇺🇸 MLB 終場通知\n"
                 f"{g['away_team']} {away_score} - {home_score} {g['home_team']}\n"
                 f"🏆 勝利：{winner}\n"
-                f"📍 {g['venue']}"
+                f"📍 {g['venue']}\n\n"
+                f"📊 查看完整看板：\nhttps://web-production-d5d20.up.railway.app"
             )
             send_line(msg)
         prev_mlb_game_states[key] = g
@@ -530,7 +532,7 @@ def handle_message(event):
         api = MessagingApi(api_client)
         api.push_message(PushMessageRequest(
             to=uid,
-            messages=[TextMessage(text=f"✅ 職棒看板已綁定！\n比賽結束時會自動通知你。\n你的 ID：{uid}")]
+            messages=[TextMessage(text=f"✅ 職棒看板已綁定！\n比賽結束時會自動通知你。\n\n📊 查看即時看板：\nhttps://web-production-d5d20.up.railway.app")]
         ))
 
 @app.route('/debug')

@@ -6,7 +6,7 @@ import threading
 import time
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from linebot.v3 import WebhookHandler
 from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, PushMessageRequest, TextMessage
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
@@ -50,7 +50,7 @@ data_store = {
     'last_updated': None,
     'games_updated': None,
     'error': None,
-    'year': str(datetime.now().year),
+    'year': str(now_tw().year),
     'season': '1',
 }
 data_lock = threading.Lock()
@@ -106,6 +106,12 @@ TEAM_INFO = {
     '中信兄弟':        {'short': '中信',   'color': '#00602A', 'accent': '#FFCC00'},
     '樂天桃猿':        {'short': '樂天',   'color': '#E4002B', 'accent': '#FFFFFF'},
 }
+
+TW = timezone(timedelta(hours=8))
+
+def now_tw():
+    """Current datetime in Taiwan time (UTC+8)."""
+    return datetime.now(tz=TW)
 
 def safe_float(s, default=0.0):
     try:
@@ -243,7 +249,7 @@ def scrape_all(year=None, season=None):
         if len(tables) > 3:
             field_headers, fielding = parse_stat_table(tables[3])
 
-        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        now = now_tw().strftime('%Y-%m-%d %H:%M:%S')
         with data_lock:
             data_store['standings']    = standings
             data_store['pitching']     = pitching
@@ -275,8 +281,7 @@ def scrape_all(year=None, season=None):
 
 def scrape_games(year=None):
     """Fetch all games for the year and return today's + tomorrow's matches."""
-    from datetime import timedelta
-    year = year or str(datetime.now().year)
+    year = year or str(now_tw().year)
     try:
         session = requests.Session()
         session.headers.update({
@@ -308,8 +313,8 @@ def scrape_games(year=None):
             raise ValueError('API returned Success=false')
 
         all_games = json.loads(result['GameDatas'])
-        today_str    = datetime.now().strftime('%Y-%m-%d')
-        tomorrow_str = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+        today_str    = now_tw().strftime('%Y-%m-%d')
+        tomorrow_str = (now_tw() + timedelta(days=1)).strftime('%Y-%m-%d')
 
         def build_game(g):
             gdate  = g.get('GameDate', '')[:10]
@@ -336,12 +341,12 @@ def scrape_games(year=None):
                 'home_color':   TEAM_INFO.get(g.get('HomeTeamName', ''),     {}).get('color', '#555'),
             }
 
-        yesterday_str  = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+        yesterday_str  = (now_tw() - timedelta(days=1)).strftime('%Y-%m-%d')
         today_games    = [build_game(g) for g in all_games if g.get('GameDate', '')[:10] == today_str]
         tomorrow_games = [build_game(g) for g in all_games if g.get('GameDate', '')[:10] == tomorrow_str]
         yesterday_games= [build_game(g) for g in all_games if g.get('GameDate', '')[:10] == yesterday_str]
 
-        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        now = now_tw().strftime('%Y-%m-%d %H:%M:%S')
         with data_lock:
             data_store['games']           = today_games
             data_store['tomorrow_games']  = tomorrow_games
@@ -357,7 +362,7 @@ def scrape_games(year=None):
 
 
 def scrape_mlb_standings(year=None):
-    year = year or str(datetime.now().year)
+    year = year or str(now_tw().year)
     try:
         url = f'https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season={year}&standingsType=regularSeason'
         r = requests.get(url, timeout=15)
@@ -387,7 +392,7 @@ def scrape_mlb_standings(year=None):
                 })
             divisions.append({'name': div_name, 'teams': teams})
 
-        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        now = now_tw().strftime('%Y-%m-%d %H:%M:%S')
         with mlb_lock:
             mlb_store['standings']    = divisions
             mlb_store['last_updated'] = now
@@ -402,7 +407,7 @@ def scrape_mlb_standings(year=None):
 
 
 def scrape_mlb_games(date=None):
-    date = date or datetime.now().strftime('%Y-%m-%d')
+    date = date or now_tw().strftime('%Y-%m-%d')
     try:
         url = f'https://statsapi.mlb.com/api/v1/schedule?sportId=1&date={date}'
         r = requests.get(url, timeout=15)
@@ -429,7 +434,7 @@ def scrape_mlb_games(date=None):
                 game_time = ''
                 if game_utc:
                     try:
-                        from datetime import timezone, timedelta
+
                         dt = datetime.strptime(game_utc, '%Y-%m-%dT%H:%M:%SZ')
                         dt_tw = dt.replace(tzinfo=timezone.utc).astimezone(tz=timezone(timedelta(hours=8)))
                         game_time = dt_tw.strftime('%H:%M')
@@ -452,7 +457,7 @@ def scrape_mlb_games(date=None):
                     'home_color': MLB_TEAM_COLORS.get(home_name, {}).get('color', '#444'),
                 })
 
-        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        now = now_tw().strftime('%Y-%m-%d %H:%M:%S')
         with mlb_lock:
             mlb_store['games']         = games
             mlb_store['games_updated'] = now
@@ -488,7 +493,7 @@ def check_game_changes(new_games):
 def check_mlb_game_changes(new_games):
     """MLB 比賽終場推播"""
     global prev_mlb_game_states
-    today = datetime.now().strftime('%Y-%m-%d')
+    today = now_tw().strftime('%Y-%m-%d')
     for g in new_games:
         key = f"{today}_{g['away_team']}_{g['home_team']}"
         old = prev_mlb_game_states.get(key)
@@ -540,9 +545,9 @@ def get_cpbl_schedule_text():
         games = data_store.get('games', [])
     if not games:
         return '今日無 CPBL 賽事'
-    today = datetime.now().strftime('%Y/%m/%d')
+    today = now_tw().strftime('%Y/%m/%d')
     weekdays = ['一','二','三','四','五','六','日']
-    wd = weekdays[datetime.now().weekday()]
+    wd = weekdays[now_tw().weekday()]
     lines = [f'⚾ CPBL 今日賽程　{today}（週{wd}）\n']
     for g in games:
         if g['is_final']:
@@ -563,9 +568,9 @@ def get_mlb_schedule_text():
         games = mlb_store.get('games', [])
     if not games:
         return '今日無 MLB 賽事'
-    today = datetime.now().strftime('%Y/%m/%d')
+    today = now_tw().strftime('%Y/%m/%d')
     weekdays = ['一','二','三','四','五','六','日']
-    wd = weekdays[datetime.now().weekday()]
+    wd = weekdays[now_tw().weekday()]
     lines = [f'🇺🇸 MLB 今日賽程　{today}（週{wd}）\n']
     for g in games:
         if g['is_final']:
@@ -647,7 +652,7 @@ def api_data():
 @app.route('/api/refresh', methods=['POST'])
 def api_refresh():
     body    = request.get_json(silent=True) or {}
-    year    = body.get('year',   str(datetime.now().year))
+    year    = body.get('year',   str(now_tw().year))
     season  = body.get('season', '1')
     scrape_all(year, season)
     scrape_games(year)

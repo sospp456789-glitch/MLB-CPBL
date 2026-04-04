@@ -451,8 +451,10 @@ def scrape_mlb_games(date=None):
         return False
 
 
+prev_mlb_game_states = {}
+
 def check_game_changes(new_games):
-    """比較新舊比賽狀態，終場時推播通知"""
+    """CPBL 比賽終場推播"""
     global prev_game_states
     for g in new_games:
         key = f"{g['date']}_{g['visit_team']}_{g['home_team']}"
@@ -470,6 +472,27 @@ def check_game_changes(new_games):
         prev_game_states[key] = g
 
 
+def check_mlb_game_changes(new_games):
+    """MLB 比賽終場推播"""
+    global prev_mlb_game_states
+    today = datetime.now().strftime('%Y-%m-%d')
+    for g in new_games:
+        key = f"{today}_{g['away_team']}_{g['home_team']}"
+        old = prev_mlb_game_states.get(key)
+        if g['is_final'] and (old is None or not old.get('is_final')):
+            away_score = g['away_score'] if g['away_score'] is not None else 0
+            home_score = g['home_score'] if g['home_score'] is not None else 0
+            winner = g['away_team'] if g['away_win'] else g['home_team']
+            msg = (
+                f"🇺🇸 MLB 終場通知\n"
+                f"{g['away_team']} {away_score} - {home_score} {g['home_team']}\n"
+                f"🏆 勝利：{winner}\n"
+                f"📍 {g['venue']}"
+            )
+            send_line(msg)
+        prev_mlb_game_states[key] = g
+
+
 def background_updater():
     while True:
         time.sleep(10 * 60)   # every 10 min
@@ -482,6 +505,8 @@ def background_updater():
             check_game_changes(data_store['games'])
         scrape_mlb_standings()
         scrape_mlb_games()
+        with mlb_lock:
+            check_mlb_game_changes(mlb_store['games'])
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────

@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>職棒看板 CPBL & MLB</title>
+<style>
+  :root {
+    --bg:      #0b0f1e;
+    --surface: #131929;
+    --card:    #1a2236;
+    --border:  #252f45;
+    --text:    #e8ecf4;
+    --muted:   #7a8ba8;
+    --green:   #22c55e;
+    --red:     #ef4444;
+    --gold:    #f59e0b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', 'Noto Sans TC', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, #0d1525 0%, #1a2a4a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 14px; }
+
+  .logo-circle {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 900; color: #fff;
+    flex-shrink: 0;
+  }
+
+  h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: 1px; }
+  h1 span { color: var(--gold); }
+
+  .header-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+  select {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    outline: none;
+  }
+  select:hover { border-color: var(--gold); }
+
+  .btn-refresh {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    transition: opacity .2s;
+  }
+  .btn-refresh:hover { opacity: .85; }
+  .btn-refresh:disabled { opacity: .5; cursor: not-allowed; }
+
+  .spin { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .last-updated {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  /* ── Team Cards ── */
+  .team-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    padding: 20px 24px 0;
+  }
+
+  .team-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    position: relative;
+    overflow: hidden;
+    transition: transform .15s;
+  }
+  .team-card:hover { transform: translateY(-2px); }
+
+  .team-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px; height: 100%;
+    background: var(--team-color);
+  }
+
+  .card-rank {
+    font-size: 2rem; font-weight: 900;
+    color: var(--team-color);
+    line-height: 1;
+  }
+
+  .card-name {
+    font-size: 0.9rem; font-weight: 600;
+    margin: 4px 0 8px;
+    color: var(--text);
+  }
+
+  .card-record {
+    font-size: 1.1rem; font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .card-wr {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .card-streak {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .streak-win  { background: rgba(34,197,94,.15); color: var(--green); }
+  .streak-lose { background: rgba(239,68,68,.15);  color: var(--red); }
+
+  /* ── Today's Games ── */
+  .games-section {
+    padding: 20px 24px 0;
+  }
+
+  .games-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .games-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+
+  .game-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .game-card.final   { border-color: #2a3a28; }
+  .game-card.live    { border-color: #f59e0b; box-shadow: 0 0 12px rgba(245,158,11,.2); }
+  .game-card.sched   { border-color: var(--border); }
+
+  .game-status {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+  }
+  .status-final  { color: var(--green); }
+  .status-live   { color: var(--gold);  animation: pulse 1.2s infinite; }
+  .status-sched  { color: var(--muted); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .game-matchup {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .game-team {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+  }
+
+  .game-team-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+  }
+
+  .game-team-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .game-score {
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: 2px;
+    min-width: 70px;
+    text-align: center;
+  }
+
+  .game-score.win  { color: var(--text); }
+  .game-score.lose { color: var(--muted); }
+
+  .game-vs { color: var(--muted); font-size: 0.85rem; }
+
+  .game-meta {
+    margin-top: 10px;
+    font-size: 0.72rem;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .no-games {
+    color: var(--muted);
+    font-size: 0.88rem;
+    padding: 12px 0;
+  }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 20px 24px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tab {
+    padding: 8px 18px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+    margin-bottom: -1px;
+  }
+  .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* ── Table ── */
+  .tab-content { display: none; padding: 0 24px 32px; }
+  .tab-content.active { display: block; }
+
+  .table-wrap {
+    overflow-x: auto;
+    margin-top: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    white-space: nowrap;
+  }
+
+  thead th {
+    background: var(--surface);
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    padding: 10px 14px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+  }
+  thead th:first-child { text-align: left; }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background .1s;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,.03); }
+
+  td {
+    padding: 11px 14px;
+    text-align: center;
+    vertical-align: middle;
+  }
+  td:first-child { text-align: left; }
+
+  .td-rank {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--muted);
+    width: 36px;
+  }
+  .td-rank.top3 { color: var(--gold); }
+
+  .td-team {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 140px;
+  }
+
+  .team-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .team-label { font-weight: 600; }
+
+  .td-wins   { color: var(--green); font-weight: 700; }
+  .td-losses { color: var(--red);   font-weight: 700; }
+  .td-ties   { color: var(--muted); }
+
+  .wr-bar-wrap {
+    display: flex; align-items: center; gap: 8px; justify-content: center;
+    min-width: 90px;
+  }
+  .wr-bar-bg {
+    flex: 1; height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    max-width: 60px;
+  }
+  .wr-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #2563eb, var(--gold));
+    transition: width .4s ease;
+  }
+  .wr-text { font-size: 0.82rem; color: var(--muted); min-width: 36px; }
+
+  .streak-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .last10 { letter-spacing: .5px; font-family: monospace; font-size: 0.88rem; }
+
+  /* ── Generic stat table ── */
+  .stat-table th, .stat-table td {
+    padding: 9px 12px;
+  }
+
+  /* ── Error / Loading ── */
+  .notice {
+    text-align: center;
+    padding: 48px;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+  .notice.error { color: var(--red); }
+
+  /* ── Footer ── */
+  footer {
+    text-align: center;
+    padding: 16px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── League Switcher ── */
+  .league-switcher {
+    display: flex;
+    gap: 12px;
+    background: #0d1525;
+    border-bottom: 2px solid var(--border);
+    padding: 14px 24px;
+    align-items: center;
+  }
+
+  .league-btn {
+    padding: 10px 24px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    border: 2px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: 10px;
+    transition: all .15s;
+    letter-spacing: .5px;
+  }
+  .league-btn.active {
+    background: linear-gradient(135deg, #1e3a5f, #2a4a7a);
+    color: #fff;
+    border-color: var(--gold);
+    box-shadow: 0 0 12px rgba(245,158,11,.25);
+  }
+  .league-btn:hover:not(.active) { color: var(--text); border-color: #555; }
+
+  /* ── MLB Standings ── */
+  .mlb-dash { display: none; }
+  .mlb-dash.active { display: block; }
+  .cpbl-dash { display: block; }
+  .cpbl-dash.hidden { display: none; }
+
+  .mlb-divisions {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+    padding: 20px 24px;
+  }
+
+  .division-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .division-title {
+    background: var(--surface);
+    padding: 10px 16px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .division-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .division-table th {
+    padding: 7px 12px;
+    text-align: center;
+    font-size: 0.72rem;
+    color: var(--muted);
+    background: var(--surface);
+    font-weight: 600;
+  }
+  .division-table th:first-child { text-align: left; }
+  .division-table td { padding: 9px 12px; text-align: center; border-top: 1px solid var(--border); }
+  .division-table td:first-child { text-align: left; }
+  .division-table tr:hover td { background: rgba(255,255,255,.03); }
+
+  .mlb-team-name { display: flex; align-items: center; gap: 8px; }
+  .mlb-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  @media (max-width: 600px) {
+    header { padding: 12px 16px; }
+    .team-cards, .tabs, .tab-content { padding-left: 16px; padding-right: 16px; }
+    .mlb-divisions { padding: 12px 16px; }
+    h1 { font-size: 1.1rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="header-left">
+    <div class="logo-circle">野</div>
+    <div>
+      <h1 id="headerTitle">中華職棒 <span>看板</span></h1>
+    </div>
+  </div>
+  <div class="header-controls">
+    <div id="cpblControls" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <select id="selYear"></select>
+      <select id="selSeason">
+        <option value="1">上半季</option>
+        <option value="2">下半季</option>
+        <option value="0">全年度</option>
+      </select>
+    </div>
+    <button class="btn-refresh" id="btnRefresh" onclick="refresh()">
+      <span id="refreshIcon">&#8635;</span> 重新整理
+    </button>
+    <div class="last-updated" id="lastUpdated">載入中...</div>
+  </div>
+</header>
+
+<!-- League Switcher -->
+<div class="league-switcher">
+  <button class="league-btn active" id="btnCpbl" onclick="switchLeague('cpbl')">🇹🇼 CPBL 中華職棒</button>
+  <button class="league-btn" id="btnMlb"  onclick="switchLeague('mlb')">🇺🇸 MLB 美國職棒</button>
+</div>
+
+<!-- ═══════════════ CPBL Dashboard ═══════════════ -->
+<div class="cpbl-dash" id="cpblDash">
+
+  <!-- Team Summary Cards -->
+  <div class="team-cards" id="teamCards"></div>
+
+  <!-- Today's Games -->
+  <div class="games-section">
+    <div class="games-title">&#9632; 今日賽事 <span id="gamesDate" style="font-weight:400;color:var(--muted)"></span></div>
+    <div class="games-grid" id="gamesGrid">
+      <div class="no-games">載入中...</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('standings', this)">球隊戰績</button>
+    <button class="tab" onclick="switchTab('pitching', this)">投球成績</button>
+    <button class="tab" onclick="switchTab('batting', this)">打擊成績</button>
+    <button class="tab" onclick="switchTab('fielding', this)">守備成績</button>
+  </div>
+
+  <!-- Standings Tab -->
+  <div class="tab-content active" id="tab-standings">
+    <div class="table-wrap">
+      <table id="standingsTable">
+        <thead>
+          <tr>
+            <th>排名</th>
+            <th style="text-align:left">球隊</th>
+            <th>出賽</th>
+            <th>勝</th>
+            <th>和</th>
+            <th>敗</th>
+            <th>勝率</th>
+            <th>勝差</th>
+            <th>主場</th>
+            <th>客場</th>
+            <th>連勝/連敗</th>
+            <th>近十場</th>
+          </tr>
+        </thead>
+        <tbody id="standingsTbody">
+          <tr><td colspan="12" class="notice">載入中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pitching Tab -->
+  <div class="tab-content" id="tab-pitching">
+    <div class="table-wrap" id="pitchingWrap"><div class="notice">載入中...</div></div>
+  </div>
+
+  <!-- Batting Tab -->
+  <div class="tab-content" id="tab-batting">
+    <div class="table-wrap" id="battingWrap"><div class="notice">載入中...</div></div>
+  </div>
+
+  <!-- Fielding Tab -->
+  <div class="tab-content" id="tab-fielding">
+    <div class="table-wrap" id="fieldingWrap"><div class="notice">載入中...</div></div>
+  </div>
+
+</div><!-- /cpbl-dash -->
+
+<!-- ═══════════════ MLB Dashboard ═══════════════ -->
+<div class="mlb-dash" id="mlbDash">
+
+  <!-- MLB Today's Games -->
+  <div class="games-section">
+    <div class="games-title">&#9632; Today's Games <span id="mlbGamesDate" style="font-weight:400;color:var(--muted)"></span></div>
+    <div class="games-grid" id="mlbGamesGrid">
+      <div class="no-games">Loading...</div>
+    </div>
+  </div>
+
+  <!-- MLB Standings by Division -->
+  <div style="padding:0 24px 8px">
+    <div class="games-title">&#9632; Standings</div>
+  </div>
+  <div class="mlb-divisions" id="mlbDivisions">
+    <div class="notice">Loading...</div>
+  </div>
+
+</div><!-- /mlb-dash -->
+
+<footer>資料來源：CPBL 官方網站 · MLB Stats API．每 10 分鐘自動更新</footer>
+
+<script>
+// ── Year options ──────────────────────────────────────────────────────────────
+const yearSel = document.getElementById('selYear');
+const thisYear = new Date().getFullYear();
+for (let y = thisYear; y >= 1990; y--) {
+  const o = document.createElement('option');
+  o.value = y; o.textContent = y + ' 年';
+  yearSel.appendChild(o);
+}
+yearSel.value = thisYear;
+
+// ── Tab switch ────────────────────────────────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function streakClass(s) {
+  if (!s) return '';
+  return s.startsWith('勝') ? 'streak-win' : 'streak-lose';
+}
+function streakColor(s) {
+  if (!s) return '#aaa';
+  return s.startsWith('勝') ? 'var(--green)' : 'var(--red)';
+}
+
+// ── Render standings ──────────────────────────────────────────────────────────
+function renderStandings(rows) {
+  const tbody = document.getElementById('standingsTbody');
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12" class="notice">暫無資料</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    const rankClass = parseInt(r.rank) <= 3 ? 'td-rank top3' : 'td-rank';
+    const wrPct = Math.round(r.win_rate * 100);
+    const streakBg = r.streak.startsWith('勝')
+      ? 'rgba(34,197,94,.15)' : r.streak.startsWith('敗')
+      ? 'rgba(239,68,68,.15)' : 'transparent';
+    const streakFg = r.streak.startsWith('勝')
+      ? 'var(--green)' : r.streak.startsWith('敗')
+      ? 'var(--red)' : 'var(--muted)';
+
+    return `<tr>
+      <td class="${rankClass}">${r.rank}</td>
+      <td>
+        <div class="td-team">
+          <span class="team-dot" style="background:${r.color}"></span>
+          <span class="team-label">${r.team}</span>
+        </div>
+      </td>
+      <td>${r.games}</td>
+      <td class="td-wins">${r.wins}</td>
+      <td class="td-ties">${r.ties}</td>
+      <td class="td-losses">${r.losses}</td>
+      <td>
+        <div class="wr-bar-wrap">
+          <div class="wr-bar-bg">
+            <div class="wr-bar-fill" style="width:${wrPct}%"></div>
+          </div>
+          <span class="wr-text">${r.win_rate.toFixed(3)}</span>
+        </div>
+      </td>
+      <td>${r.gb}</td>
+      <td style="color:var(--muted);font-size:.82rem">${r.home}</td>
+      <td style="color:var(--muted);font-size:.82rem">${r.away}</td>
+      <td>
+        <span class="streak-badge" style="background:${streakBg};color:${streakFg}">
+          ${r.streak || '-'}
+        </span>
+      </td>
+      <td class="last10">${r.last10}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Render team cards ─────────────────────────────────────────────────────────
+function renderCards(rows) {
+  const wrap = document.getElementById('teamCards');
+  if (!rows || rows.length === 0) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = rows.map(r => `
+    <div class="team-card" style="--team-color:${r.color}">
+      <div class="card-rank" style="color:${r.color}">${r.rank}</div>
+      <div class="card-name">${r.team}</div>
+      <div class="card-record">${r.wins} - ${r.losses}</div>
+      <div class="card-wr">勝率 ${r.win_rate.toFixed(3)} ／ 勝差 ${r.gb}</div>
+      <span class="card-streak ${streakClass(r.streak)}">${r.streak || '-'}</span>
+    </div>
+  `).join('');
+}
+
+// ── Render generic stat table ─────────────────────────────────────────────────
+function renderStatTable(wrapId, cols, rows) {
+  const wrap = document.getElementById(wrapId);
+  if (!cols || cols.length === 0 || !rows || rows.length === 0) {
+    wrap.innerHTML = '<div class="notice">暫無資料</div>';
+    return;
+  }
+  const headers = cols.map(c => `<th>${c}</th>`).join('');
+  const bodyRows = rows.map(r => {
+    const cells = cols.map(c => {
+      const val = r[c] || '-';
+      return `<td>${val}</td>`;
+    }).join('');
+    return `<tr>${cells}</tr>`;
+  }).join('');
+  wrap.innerHTML = `
+    <table class="stat-table">
+      <thead><tr>${headers}</tr></thead>
+      <tbody>${bodyRows}</tbody>
+    </table>`;
+}
+
+// ── Render today's games ──────────────────────────────────────────────────────
+function renderGames(games) {
+  const grid = document.getElementById('gamesGrid');
+  const dateEl = document.getElementById('gamesDate');
+  const today = new Date().toLocaleDateString('zh-TW', {month:'numeric', day:'numeric', weekday:'short'});
+  dateEl.textContent = today;
+
+  if (!games || games.length === 0) {
+    grid.innerHTML = '<div class="no-games">今日無賽事</div>';
+    return;
+  }
+
+  grid.innerHTML = games.map(g => {
+    let statusClass = 'sched', statusLabel = '', dotColor = 'var(--muted)';
+    if (g.is_postponed) {
+      statusClass = 'sched'; statusLabel = '延賽'; dotColor = 'var(--muted)';
+    } else if (g.is_live) {
+      statusClass = 'live'; statusLabel = '進行中'; dotColor = 'var(--gold)';
+    } else if (g.is_final) {
+      statusClass = 'final'; statusLabel = '終場'; dotColor = 'var(--green)';
+    } else {
+      statusLabel = g.time ? g.time + ' 開打' : '預定';
+    }
+
+    const vScore = g.is_final || g.is_live ? g.visit_score : '-';
+    const hScore = g.is_final || g.is_live ? g.home_score  : '-';
+    const vWin = g.is_final && g.visit_score > g.home_score;
+    const hWin = g.is_final && g.home_score  > g.visit_score;
+
+    const meta = g.is_final ? `
+      <span>勝投：${g.win_pitcher || '-'}</span>
+      <span>敗投：${g.lose_pitcher || '-'}</span>
+      ${g.closer ? `<span>終結：${g.closer}</span>` : ''}
+      ${g.mvp    ? `<span>MVP：${g.mvp}</span>`     : ''}
+    ` : `<span>場地：${g.field}</span>`;
+
+    return `
+    <div class="game-card ${statusClass}">
+      <div class="game-status">
+        <span class="status-dot status-${statusClass}" style="background:${dotColor}"></span>
+        <span class="status-${statusClass}">${statusLabel}</span>
+        <span style="margin-left:auto;color:var(--muted);font-weight:400">${g.field}</span>
+      </div>
+      <div class="game-matchup">
+        <div class="game-team">
+          <span class="game-team-dot" style="background:${g.visit_color}"></span>
+          <span class="game-team-name">${g.visit_team}</span>
+          <span class="game-score ${vWin?'win':'lose'}">${vScore}</span>
+        </div>
+        <span class="game-vs">VS</span>
+        <div class="game-team">
+          <span class="game-team-dot" style="background:${g.home_color}"></span>
+          <span class="game-team-name">${g.home_team}</span>
+          <span class="game-score ${hWin?'win':'lose'}">${hScore}</span>
+        </div>
+      </div>
+      <div class="game-meta">${meta}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Fetch & render ────────────────────────────────────────────────────────────
+function applyData(data) {
+  if (data.error) {
+    document.getElementById('standingsTbody').innerHTML =
+      `<tr><td colspan="12" class="notice error">錯誤：${data.error}</td></tr>`;
+  } else {
+    renderStandings(data.standings);
+    renderCards(data.standings);
+    renderStatTable('pitchingWrap', data.pitch_cols, data.pitching);
+    renderStatTable('battingWrap',  data.bat_cols,   data.batting);
+    renderStatTable('fieldingWrap', data.field_cols, data.fielding);
+  }
+  renderGames(data.games || []);
+  document.getElementById('lastUpdated').textContent =
+    data.last_updated ? '更新：' + data.last_updated : '';
+}
+
+async function loadData() {
+  const res = await fetch('/api/data');
+  const data = await res.json();
+  applyData(data);
+}
+
+// ── League Switcher ───────────────────────────────────────────────────────────
+let currentLeague = 'cpbl';
+
+function switchLeague(league) {
+  currentLeague = league;
+  document.getElementById('cpblDash').classList.toggle('hidden', league !== 'cpbl');
+  document.getElementById('mlbDash').classList.toggle('active',  league === 'mlb');
+  document.getElementById('btnCpbl').classList.toggle('active',  league === 'cpbl');
+  document.getElementById('btnMlb').classList.toggle('active',   league === 'mlb');
+  document.getElementById('cpblControls').style.display = league === 'cpbl' ? 'flex' : 'none';
+  document.getElementById('headerTitle').innerHTML =
+    league === 'cpbl' ? '中華職棒 <span>看板</span>' : 'MLB <span>看板</span>';
+  if (league === 'mlb') loadMlb();
+}
+
+// ── MLB Render: Standings ─────────────────────────────────────────────────────
+function renderMlbStandings(divisions) {
+  const wrap = document.getElementById('mlbDivisions');
+  if (!divisions || divisions.length === 0) {
+    wrap.innerHTML = '<div class="notice">No data</div>'; return;
+  }
+  wrap.innerHTML = divisions.map(div => `
+    <div class="division-card">
+      <div class="division-title">${div.name}</div>
+      <table class="division-table">
+        <thead><tr>
+          <th>Team</th><th>W</th><th>L</th><th>PCT</th><th>GB</th><th>Streak</th>
+        </tr></thead>
+        <tbody>
+          ${div.teams.map(t => {
+            const isWin  = t.streak.startsWith('W');
+            const isLose = t.streak.startsWith('L');
+            const sColor = isWin ? 'var(--green)' : isLose ? 'var(--red)' : 'var(--muted)';
+            const sBg    = isWin ? 'rgba(34,197,94,.12)' : isLose ? 'rgba(239,68,68,.12)' : 'transparent';
+            return `<tr>
+              <td>
+                <div class="mlb-team-name">
+                  <span class="mlb-dot" style="background:${t.color}"></span>
+                  ${t.team}
+                </div>
+              </td>
+              <td style="color:var(--green);font-weight:700">${t.wins}</td>
+              <td style="color:var(--red);font-weight:700">${t.losses}</td>
+              <td style="color:var(--muted)">${t.win_pct}</td>
+              <td>${t.gb === '-' ? '<span style="color:var(--gold)">—</span>' : t.gb}</td>
+              <td><span style="background:${sBg};color:${sColor};padding:2px 8px;border-radius:999px;font-size:.78rem;font-weight:700">${t.streak||'-'}</span></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `).join('');
+}
+
+// ── MLB Render: Games ─────────────────────────────────────────────────────────
+function renderMlbGames(games) {
+  const grid = document.getElementById('mlbGamesGrid');
+  const dateEl = document.getElementById('mlbGamesDate');
+  dateEl.textContent = new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', weekday:'short'});
+
+  if (!games || games.length === 0) {
+    grid.innerHTML = '<div class="no-games">No games today</div>'; return;
+  }
+  grid.innerHTML = games.map(g => {
+    let statusClass = 'sched', statusLabel = g.time || 'Scheduled', dotColor = 'var(--muted)';
+    if (g.is_final) { statusClass = 'final'; statusLabel = 'Final';      dotColor = 'var(--green)'; }
+    if (g.is_live)  { statusClass = 'live';  statusLabel = g.status||'Live'; dotColor = 'var(--gold)'; }
+
+    const aScore = g.away_score !== null ? g.away_score : '-';
+    const hScore = g.home_score !== null ? g.home_score : '-';
+
+    return `
+    <div class="game-card ${statusClass}">
+      <div class="game-status">
+        <span class="status-dot status-${statusClass}" style="background:${dotColor}"></span>
+        <span class="status-${statusClass}">${statusLabel}</span>
+        <span style="margin-left:auto;color:var(--muted);font-weight:400;font-size:.72rem">${g.venue}</span>
+      </div>
+      <div class="game-matchup">
+        <div class="game-team">
+          <span class="game-team-dot" style="background:${g.away_color}"></span>
+          <span class="game-team-name" style="font-size:.78rem">${g.away_team}</span>
+          <span class="game-score ${g.away_win?'win':'lose'}">${aScore}</span>
+        </div>
+        <span class="game-vs">@</span>
+        <div class="game-team">
+          <span class="game-team-dot" style="background:${g.home_color}"></span>
+          <span class="game-team-name" style="font-size:.78rem">${g.home_team}</span>
+          <span class="game-score ${g.home_win?'win':'lose'}">${hScore}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── MLB Load ──────────────────────────────────────────────────────────────────
+async function loadMlb() {
+  const res  = await fetch('/api/mlb');
+  const data = await res.json();
+  renderMlbStandings(data.standings);
+  renderMlbGames(data.games);
+}
+
+async function refresh() {
+  const btn  = document.getElementById('btnRefresh');
+  const icon = document.getElementById('refreshIcon');
+  btn.disabled = true;
+  icon.className = 'spin';
+  icon.textContent = '↻';
+
+  try {
+    if (currentLeague === 'mlb') {
+      const res  = await fetch('/api/mlb/refresh', { method: 'POST' });
+      const data = await res.json();
+      renderMlbStandings(data.standings);
+      renderMlbGames(data.games);
+    } else {
+      const year   = document.getElementById('selYear').value;
+      const season = document.getElementById('selSeason').value;
+      const res  = await fetch('/api/refresh', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({year, season})
+      });
+      const data = await res.json();
+      applyData(data);
+    }
+  } catch(e) { console.error(e); }
+
+  btn.disabled = false;
+  icon.className = '';
+  icon.textContent = '⟳';
+}
+
+// Auto-refresh every 5 min
+async function autoRefresh() {
+  await loadData();
+  if (currentLeague === 'mlb') await loadMlb();
+}
+loadData();
+setInterval(autoRefresh, 5 * 60 * 1000);
+</script>
+</body>
+</html>

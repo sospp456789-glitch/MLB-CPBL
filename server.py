@@ -1,0 +1,497 @@
+from flask import Flask, jsonify, render_template, request
+import os
+import requests
+from bs4 import BeautifulSoup
+import threading
+import time
+import json
+import re
+from datetime import datetime
+
+app = Flask(__name__)
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+data_store = {
+    'standings': [],
+    'pitching': [],
+    'batting': [],
+    'fielding': [],
+    'games': [],          # today's games
+    'last_updated': None,
+    'games_updated': None,
+    'error': None,
+    'year': str(datetime.now().year),
+    'season': '1',
+}
+data_lock = threading.Lock()
+
+# ── MLB ───────────────────────────────────────────────────────────────────────
+mlb_store = {
+    'standings': [],   # list of divisions, each with teams
+    'games':     [],   # today's games
+    'last_updated':  None,
+    'games_updated': None,
+    'error': None,
+}
+mlb_lock = threading.Lock()
+
+MLB_TEAM_COLORS = {
+    'New York Yankees':       {'color': '#003087', 'accent': '#C4CED4'},
+    'Toronto Blue Jays':      {'color': '#134A8E', 'accent': '#E8291C'},
+    'Baltimore Orioles':      {'color': '#DF4601', 'accent': '#000000'},
+    'Boston Red Sox':         {'color': '#BD3039', 'accent': '#0C2340'},
+    'Tampa Bay Rays':         {'color': '#092C5C', 'accent': '#8FBCE6'},
+    'Chicago White Sox':      {'color': '#27251F', 'accent': '#C4CED4'},
+    'Cleveland Guardians':    {'color': '#00385D', 'accent': '#E31937'},
+    'Detroit Tigers':         {'color': '#0C2340', 'accent': '#FA4616'},
+    'Kansas City Royals':     {'color': '#004687', 'accent': '#C09A5B'},
+    'Minnesota Twins':        {'color': '#002B5C', 'accent': '#D31145'},
+    'Houston Astros':         {'color': '#002D62', 'accent': '#EB6E1F'},
+    'Los Angeles Angels':     {'color': '#003263', 'accent': '#BA0021'},
+    'Oakland Athletics':      {'color': '#003831', 'accent': '#EFB21E'},
+    'Seattle Mariners':       {'color': '#0C2C56', 'accent': '#005C5C'},
+    'Texas Rangers':          {'color': '#003278', 'accent': '#C0111F'},
+    'Atlanta Braves':         {'color': '#CE1141', 'accent': '#13274F'},
+    'Miami Marlins':          {'color': '#00A3E0', 'accent': '#EF3340'},
+    'New York Mets':          {'color': '#002D72', 'accent': '#FF5910'},
+    'Philadelphia Phillies':  {'color': '#E81828', 'accent': '#002D72'},
+    'Washington Nationals':   {'color': '#AB0003', 'accent': '#14225A'},
+    'Chicago Cubs':           {'color': '#0E3386', 'accent': '#CC3433'},
+    'Cincinnati Reds':        {'color': '#C6011F', 'accent': '#000000'},
+    'Milwaukee Brewers':      {'color': '#12284B', 'accent': '#FFC52F'},
+    'Pittsburgh Pirates':     {'color': '#27251F', 'accent': '#FDB827'},
+    'St. Louis Cardinals':    {'color': '#C41E3A', 'accent': '#0C2340'},
+    'Arizona Diamondbacks':   {'color': '#A71930', 'accent': '#E3D4AD'},
+    'Colorado Rockies':       {'color': '#33006F', 'accent': '#C4CED4'},
+    'Los Angeles Dodgers':    {'color': '#005A9C', 'accent': '#EF3E42'},
+    'San Diego Padres':       {'color': '#2F241D', 'accent': '#FFC425'},
+    'San Francisco Giants':   {'color': '#FD5A1E', 'accent': '#27251F'},
+}
+
+TEAM_INFO = {
+    '統一7-ELEVEn獅': {'short': '統一獅', 'color': '#003087', 'accent': '#F5B400'},
+    '富邦悍將':        {'short': '富邦',   'color': '#003F8A', 'accent': '#E31837'},
+    '味全龍':          {'short': '味全龍', 'color': '#C8102E', 'accent': '#111111'},
+    '台鋼雄鷹':        {'short': '台鋼',   'color': '#1B2A4A', 'accent': '#E4002B'},
+    '中信兄弟':        {'short': '中信',   'color': '#00602A', 'accent': '#FFCC00'},
+    '樂天桃猿':        {'short': '樂天',   'color': '#E4002B', 'accent': '#FFFFFF'},
+}
+
+def safe_float(s, default=0.0):
+    try:
+        return float(s.strip())
+    except Exception:
+        return default
+
+def safe_int(s, default=0):
+    try:
+        return int(s.strip())
+    except Exception:
+        return default
+
+
+def parse_standings_table(table):
+    rows = table.find_all('tr')
+    if not rows:
+        return []
+
+    results = []
+    for row in rows[1:]:
+        tds = row.find_all('td')
+        if len(tds) < 6:
+            continue
+
+        rank_div = tds[0].find('div', class_='rank')
+        rank = rank_div.text.strip() if rank_div else ''
+
+        team_link = tds[0].find('a')
+        team_name = team_link.text.strip() if team_link else ''
+        if not team_name:
+            continue
+
+        games   = tds[1].text.strip()
+        wtl_raw = tds[2].text.strip()      # e.g. "3-0-1"
+        win_rate_raw = tds[3].text.strip()
+        gb_raw  = tds[4].text.strip()
+
+        parts = wtl_raw.split('-')
+        wins   = safe_int(parts[0]) if len(parts) > 0 else 0
+        ties   = safe_int(parts[1]) if len(parts) > 1 else 0
+        losses = safe_int(parts[2]) if len(parts) > 2 else 0
+        win_rate = safe_float(win_rate_raw)
+
+        # Last 4 columns: 主場, 客場, 連勝/連敗, 近十場
+        home_rec   = tds[-4].text.strip() if len(tds) >= 4 else ''
+        away_rec   = tds[-3].text.strip() if len(tds) >= 3 else ''
+        streak     = tds[-2].text.strip() if len(tds) >= 2 else ''
+        last10     = tds[-1].text.strip() if len(tds) >= 1 else ''
+
+        info = TEAM_INFO.get(team_name, {'short': team_name, 'color': '#555', 'accent': '#aaa'})
+
+        results.append({
+            'rank':      rank,
+            'team':      team_name,
+            'short':     info['short'],
+            'color':     info['color'],
+            'accent':    info['accent'],
+            'games':     safe_int(games),
+            'wins':      wins,
+            'ties':      ties,
+            'losses':    losses,
+            'win_rate':  win_rate,
+            'gb':        gb_raw if gb_raw not in ('', '&nbsp;') else '-',
+            'home':      home_rec,
+            'away':      away_rec,
+            'streak':    streak,
+            'last10':    last10,
+        })
+    return results
+
+
+def parse_stat_table(table, skip_first_col=True):
+    rows = table.find_all('tr')
+    if len(rows) < 2:
+        return [], []
+
+    headers = []
+    for th in rows[0].find_all('th'):
+        headers.append(th.text.strip())
+
+    results = []
+    for row in rows[1:]:
+        tds = row.find_all('td')
+        if not tds:
+            continue
+        entry = {}
+        for i, td in enumerate(tds):
+            if i < len(headers):
+                # Team name cell
+                link = td.find('a')
+                val = link.text.strip() if link else td.text.strip()
+                entry[headers[i]] = val
+        if entry:
+            results.append(entry)
+    return headers, results
+
+
+def scrape_all(year=None, season=None):
+    with data_lock:
+        year   = year   or data_store['year']
+        season = season or data_store['season']
+
+    try:
+        url = 'https://www.cpbl.com.tw/standings/seasonaction'
+        payload = {
+            'KindCode':       'A',
+            'SeasonCode':     season,
+            'GameSystemCode': '',
+            'YearCode':       year,
+        }
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Referer':      'https://www.cpbl.com.tw/standings/season',
+            'User-Agent':   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        }
+
+        resp = requests.post(url, data=payload, headers=headers, timeout=15)
+        resp.raise_for_status()
+        resp.encoding = 'utf-8'
+
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        tables = soup.find_all('table')
+
+        standings = parse_standings_table(tables[0]) if len(tables) > 0 else []
+
+        pitch_headers, pitching = [], []
+        bat_headers, batting     = [], []
+        field_headers, fielding  = [], []
+
+        if len(tables) > 1:
+            pitch_headers, pitching = parse_stat_table(tables[1])
+        if len(tables) > 2:
+            bat_headers, batting = parse_stat_table(tables[2])
+        if len(tables) > 3:
+            field_headers, fielding = parse_stat_table(tables[3])
+
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        with data_lock:
+            data_store['standings']    = standings
+            data_store['pitching']     = pitching
+            data_store['pitch_cols']   = pitch_headers
+            data_store['batting']      = batting
+            data_store['bat_cols']     = bat_headers
+            data_store['fielding']     = fielding
+            data_store['field_cols']   = field_headers
+            data_store['last_updated'] = now
+            data_store['error']        = None
+            data_store['year']         = year
+            data_store['season']       = season
+
+        print(f"[{now}] Updated — {len(standings)} teams, year={year}, season={season}")
+        return True
+
+    except Exception as e:
+        with data_lock:
+            data_store['error'] = str(e)
+        print(f"[ERROR] {e}")
+        return False
+
+
+def scrape_games(year=None):
+    """Fetch all games for the year and return today's matches."""
+    year = year or str(datetime.now().year)
+    try:
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        })
+
+        # Get session cookies + AJAX token
+        r = session.get('https://www.cpbl.com.tw/schedule', timeout=15)
+        tokens = re.findall(r"RequestVerificationToken: '([^']+)'", r.text)
+        if not tokens:
+            raise ValueError('Cannot find RequestVerificationToken')
+        ajax_token = tokens[0]
+
+        r2 = session.post(
+            'https://www.cpbl.com.tw/schedule/getgamedatas',
+            data={'calendar': f'{year}/01/01', 'location': '', 'kindCode': 'A'},
+            headers={
+                'RequestVerificationToken': ajax_token,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Referer': 'https://www.cpbl.com.tw/schedule',
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            },
+            timeout=15
+        )
+        r2.raise_for_status()
+        result = r2.json()
+
+        if not result.get('Success'):
+            raise ValueError('API returned Success=false')
+
+        all_games = json.loads(result['GameDatas'])
+        today_str = datetime.now().strftime('%Y-%m-%d')
+
+        today_games = []
+        for g in all_games:
+            gdate = g.get('GameDate', '')[:10]
+            if gdate != today_str:
+                continue
+
+            status = g.get('GameResult', '')   # '0'=final, ''=scheduled, '2'=postponed
+            is_final = (status == '0')
+            is_postponed = (status == '2')
+
+            today_games.append({
+                'sno':          g.get('GameSno'),
+                'date':         gdate,
+                'time':         g.get('PreExeDate', '')[-8:-3] if g.get('PreExeDate') else '',
+                'field':        g.get('FieldAbbe', ''),
+                'visit_team':   g.get('VisitingTeamName', ''),
+                'home_team':    g.get('HomeTeamName', ''),
+                'visit_score':  g.get('VisitingScore'),
+                'home_score':   g.get('HomeScore'),
+                'is_final':     is_final,
+                'is_postponed': is_postponed,
+                'is_live':      g.get('IsPlayBall') == 'Y',
+                'win_pitcher':  g.get('WinningPitcherName', ''),
+                'lose_pitcher': g.get('LoserPitcherName', ''),
+                'closer':       g.get('CloserName', ''),
+                'mvp':          g.get('MvpName', ''),
+                'visit_color':  TEAM_INFO.get(g.get('VisitingTeamName', ''), {}).get('color', '#555'),
+                'home_color':   TEAM_INFO.get(g.get('HomeTeamName', ''),     {}).get('color', '#555'),
+            })
+
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        with data_lock:
+            data_store['games']         = today_games
+            data_store['games_updated'] = now
+
+        print(f"[{now}] Games updated — {len(today_games)} games today")
+        return True
+
+    except Exception as e:
+        print(f"[ERROR games] {e}")
+        return False
+
+
+def scrape_mlb_standings(year=None):
+    year = year or str(datetime.now().year)
+    try:
+        url = f'https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season={year}&standingsType=regularSeason'
+        r = requests.get(url, timeout=15)
+        r.raise_for_status()
+        data = r.json()
+
+        divisions = []
+        for record in data.get('records', []):
+            div_name = record.get('division', {}).get('name', '')
+            teams = []
+            for tr in record.get('teamRecords', []):
+                name = tr.get('team', {}).get('name', '')
+                info = MLB_TEAM_COLORS.get(name, {'color': '#444', 'accent': '#888'})
+                streak = tr.get('streak', {}).get('streakCode', '')
+                teams.append({
+                    'rank':     tr.get('divisionRank', ''),
+                    'team':     name,
+                    'color':    info['color'],
+                    'accent':   info['accent'],
+                    'wins':     tr.get('wins', 0),
+                    'losses':   tr.get('losses', 0),
+                    'games':    tr.get('gamesPlayed', 0),
+                    'win_pct':  tr.get('winningPercentage', '.000'),
+                    'gb':       tr.get('gamesBack', '-'),
+                    'streak':   streak,
+                    'wc_gb':    tr.get('wildCardGamesBack', '-'),
+                })
+            divisions.append({'name': div_name, 'teams': teams})
+
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        with mlb_lock:
+            mlb_store['standings']    = divisions
+            mlb_store['last_updated'] = now
+            mlb_store['error']        = None
+        print(f"[{now}] MLB standings updated — {len(divisions)} divisions")
+        return True
+    except Exception as e:
+        with mlb_lock:
+            mlb_store['error'] = str(e)
+        print(f"[ERROR MLB standings] {e}")
+        return False
+
+
+def scrape_mlb_games(date=None):
+    date = date or datetime.now().strftime('%Y-%m-%d')
+    try:
+        url = f'https://statsapi.mlb.com/api/v1/schedule?sportId=1&date={date}'
+        r = requests.get(url, timeout=15)
+        r.raise_for_status()
+        data = r.json()
+
+        games = []
+        for day in data.get('dates', []):
+            for g in day.get('games', []):
+                away = g['teams']['away']
+                home = g['teams']['home']
+                status = g.get('status', {})
+                state  = status.get('abstractGameState', '')   # Final / Live / Preview
+                detail = status.get('detailedState', '')
+
+                is_final = (state == 'Final')
+                is_live  = (state == 'Live')
+
+                away_name = away.get('team', {}).get('name', '')
+                home_name = home.get('team', {}).get('name', '')
+
+                # game time → convert UTC to local +8 (Taiwan)
+                game_utc = g.get('gameDate', '')
+                game_time = ''
+                if game_utc:
+                    try:
+                        from datetime import timezone, timedelta
+                        dt = datetime.strptime(game_utc, '%Y-%m-%dT%H:%M:%SZ')
+                        dt_tw = dt.replace(tzinfo=timezone.utc).astimezone(tz=timezone(timedelta(hours=8)))
+                        game_time = dt_tw.strftime('%H:%M')
+                    except Exception:
+                        pass
+
+                games.append({
+                    'away_team':  away_name,
+                    'home_team':  home_name,
+                    'away_score': away.get('score', 0) if is_final or is_live else None,
+                    'home_score': home.get('score', 0) if is_final or is_live else None,
+                    'away_win':   away.get('isWinner', False),
+                    'home_win':   home.get('isWinner', False),
+                    'is_final':   is_final,
+                    'is_live':    is_live,
+                    'status':     detail,
+                    'time':       game_time,
+                    'venue':      g.get('venue', {}).get('name', ''),
+                    'away_color': MLB_TEAM_COLORS.get(away_name, {}).get('color', '#444'),
+                    'home_color': MLB_TEAM_COLORS.get(home_name, {}).get('color', '#444'),
+                })
+
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        with mlb_lock:
+            mlb_store['games']         = games
+            mlb_store['games_updated'] = now
+        print(f"[{now}] MLB games updated — {len(games)} games")
+        return True
+    except Exception as e:
+        print(f"[ERROR MLB games] {e}")
+        return False
+
+
+def background_updater():
+    while True:
+        time.sleep(10 * 60)   # every 10 min
+        with data_lock:
+            y = data_store['year']
+            s = data_store['season']
+        scrape_all(y, s)
+        scrape_games(y)
+        scrape_mlb_standings()
+        scrape_mlb_games()
+
+
+# ── Routes ────────────────────────────────────────────────────────────────────
+
+@app.route('/debug')
+def debug():
+    import os
+    path = os.path.join(app.root_path, 'templates', 'index.html')
+    with open(path, encoding='utf-8') as f:
+        content = f.read()
+    return f"root={app.root_path} | size={len(content)} | has_mlb={'league-switcher' in content}"
+
+@app.route('/')
+def index():
+    resp = render_template('index.html')
+    from flask import make_response
+    r = make_response(resp)
+    r.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+    return r
+
+
+@app.route('/api/data')
+def api_data():
+    with data_lock:
+        return jsonify({k: v for k, v in data_store.items()})
+
+
+@app.route('/api/refresh', methods=['POST'])
+def api_refresh():
+    body    = request.get_json(silent=True) or {}
+    year    = body.get('year',   str(datetime.now().year))
+    season  = body.get('season', '1')
+    scrape_all(year, season)
+    scrape_games(year)
+    with data_lock:
+        return jsonify({k: v for k, v in data_store.items()})
+
+
+@app.route('/api/mlb')
+def api_mlb():
+    with mlb_lock:
+        return jsonify({k: v for k, v in mlb_store.items()})
+
+
+@app.route('/api/mlb/refresh', methods=['POST'])
+def api_mlb_refresh():
+    scrape_mlb_standings()
+    scrape_mlb_games()
+    with mlb_lock:
+        return jsonify({k: v for k, v in mlb_store.items()})
+
+
+if __name__ == '__main__':
+    scrape_all()
+    scrape_games()
+    scrape_mlb_standings()
+    scrape_mlb_games()
+    t = threading.Thread(target=background_updater, daemon=True)
+    t.start()
+    print("CPBL Dashboard → http://127.0.0.1:8080")
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port, debug=False)

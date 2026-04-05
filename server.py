@@ -32,7 +32,23 @@ LINE_TOKEN  = os.environ.get('LINE_TOKEN',  '9X2wPChNY6eiNhnHjUSYO94+F+yQaNPaZxO
 line_handler = WebhookHandler(LINE_SECRET)
 line_config  = Configuration(access_token=LINE_TOKEN)
 
-line_user_ids = set()   # 儲存加好友的 User ID
+USER_IDS_FILE = 'line_user_ids.json'
+
+def load_user_ids():
+    try:
+        with open(USER_IDS_FILE, 'r') as f:
+            return set(json.load(f))
+    except Exception:
+        return set()
+
+def save_user_ids():
+    try:
+        with open(USER_IDS_FILE, 'w') as f:
+            json.dump(list(line_user_ids), f)
+    except Exception as e:
+        print(f'[LINE] save_user_ids error: {e}')
+
+line_user_ids = load_user_ids()   # 從檔案載入，重啟後不會遺失
 prev_game_states = {}   # 追蹤比賽狀態變化
 
 def send_line(msg):
@@ -598,6 +614,7 @@ def get_mlb_schedule_text():
 def handle_message(event):
     uid = event.source.user_id
     line_user_ids.add(uid)
+    save_user_ids()   # 立即寫檔，重啟後不會遺失
     text = event.message.text.strip()
 
     cpbl_keywords = ['cpbl', '中華職棒', '台灣', '職棒']

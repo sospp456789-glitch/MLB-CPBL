@@ -772,7 +772,7 @@ function buildGameCards(games, emptyMsg) {
     if (g.is_postponed) {
       statusClass = 'sched'; statusLabel = '延賽'; dotColor = 'var(--muted)';
     } else if (g.is_live) {
-      statusClass = 'live'; statusLabel = '進行中'; dotColor = 'var(--gold)';
+      statusClass = 'live'; statusLabel = '🔴 進行中'; dotColor = 'var(--gold)';
     } else if (g.is_final) {
       statusClass = 'final'; statusLabel = '終場'; dotColor = 'var(--green)';
     } else {
@@ -789,6 +789,9 @@ function buildGameCards(games, emptyMsg) {
       <span>敗投：${g.lose_pitcher || '-'}</span>
       ${g.closer ? `<span>終結：${g.closer}</span>` : ''}
       ${g.mvp    ? `<span>MVP：${g.mvp}</span>`     : ''}
+    ` : g.is_live ? `
+      <span>📍 ${g.field}</span>
+      <span style="color:var(--muted);font-size:0.68rem">每10分鐘更新比分</span>
     ` : `
       <span>場地：${g.field}</span>
       ${g.visit_starter ? `<span>先發：${g.visit_starter} vs ${g.home_starter}</span>` : ''}

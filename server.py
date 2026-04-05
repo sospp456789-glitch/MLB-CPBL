@@ -496,11 +496,23 @@ def scrape_mlb_games(date=None):
 prev_mlb_game_states = {}
 
 def check_game_changes(new_games):
-    """CPBL 比賽終場推播"""
+    """CPBL 開打 & 終場推播"""
     global prev_game_states
     for g in new_games:
         key = f"{g['date']}_{g['visit_team']}_{g['home_team']}"
         old = prev_game_states.get(key)
+
+        # 開打通知
+        if g['is_live'] and (old is None or not old.get('is_live')):
+            msg = (
+                f"⚾ CPBL 開打通知\n"
+                f"{g['visit_team']} vs {g['home_team']}\n"
+                f"📍 {g['field']}\n\n"
+                f"📊 查看完整看板：\nhttps://web-production-d5d20.up.railway.app"
+            )
+            send_line(msg)
+
+        # 終場通知
         if g['is_final'] and (old is None or not old.get('is_final')):
             winner = g['visit_team'] if g['visit_score'] > g['home_score'] else g['home_team']
             msg = (
@@ -512,6 +524,7 @@ def check_game_changes(new_games):
                 f"📊 查看完整看板：\nhttps://web-production-d5d20.up.railway.app"
             )
             send_line(msg)
+
         prev_game_states[key] = g
 
 

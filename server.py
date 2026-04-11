@@ -92,37 +92,55 @@ mlb_store = {
 }
 mlb_lock = threading.Lock()
 
+_ESPN = 'https://a.espncdn.com/i/teamlogos/mlb/500'
+
+# MLB team ID → ESPN logo abbreviation (IDs from MLB Stats API)
+_MLB_ID_LOGO = {
+    108: 'laa', 109: 'ari', 110: 'bal', 111: 'bos',
+    112: 'chc', 113: 'cin', 114: 'cle', 115: 'col',
+    116: 'det', 117: 'hou', 118: 'kc',  119: 'lad',
+    120: 'wsh', 121: 'nym', 133: 'oak', 134: 'pit',
+    135: 'sd',  136: 'sea', 137: 'sf',  138: 'stl',
+    139: 'tb',  140: 'tex', 141: 'tor', 142: 'min',
+    143: 'phi', 144: 'atl', 145: 'chw', 146: 'mia',
+    147: 'nyy', 158: 'mil',
+}
+
+def _logo_url(team_id):
+    abbr = _MLB_ID_LOGO.get(team_id)
+    return f'{_ESPN}/{abbr}.png' if abbr else ''
+
 MLB_TEAM_COLORS = {
-    'New York Yankees':       {'color': '#003087', 'accent': '#C4CED4'},
-    'Toronto Blue Jays':      {'color': '#134A8E', 'accent': '#E8291C'},
-    'Baltimore Orioles':      {'color': '#DF4601', 'accent': '#000000'},
-    'Boston Red Sox':         {'color': '#BD3039', 'accent': '#0C2340'},
-    'Tampa Bay Rays':         {'color': '#092C5C', 'accent': '#8FBCE6'},
-    'Chicago White Sox':      {'color': '#27251F', 'accent': '#C4CED4'},
-    'Cleveland Guardians':    {'color': '#00385D', 'accent': '#E31937'},
-    'Detroit Tigers':         {'color': '#0C2340', 'accent': '#FA4616'},
-    'Kansas City Royals':     {'color': '#004687', 'accent': '#C09A5B'},
-    'Minnesota Twins':        {'color': '#002B5C', 'accent': '#D31145'},
-    'Houston Astros':         {'color': '#002D62', 'accent': '#EB6E1F'},
-    'Los Angeles Angels':     {'color': '#003263', 'accent': '#BA0021'},
-    'Oakland Athletics':      {'color': '#003831', 'accent': '#EFB21E'},
-    'Seattle Mariners':       {'color': '#0C2C56', 'accent': '#005C5C'},
-    'Texas Rangers':          {'color': '#003278', 'accent': '#C0111F'},
-    'Atlanta Braves':         {'color': '#CE1141', 'accent': '#13274F'},
-    'Miami Marlins':          {'color': '#00A3E0', 'accent': '#EF3340'},
-    'New York Mets':          {'color': '#002D72', 'accent': '#FF5910'},
-    'Philadelphia Phillies':  {'color': '#E81828', 'accent': '#002D72'},
-    'Washington Nationals':   {'color': '#AB0003', 'accent': '#14225A'},
-    'Chicago Cubs':           {'color': '#0E3386', 'accent': '#CC3433'},
-    'Cincinnati Reds':        {'color': '#C6011F', 'accent': '#000000'},
-    'Milwaukee Brewers':      {'color': '#12284B', 'accent': '#FFC52F'},
-    'Pittsburgh Pirates':     {'color': '#27251F', 'accent': '#FDB827'},
-    'St. Louis Cardinals':    {'color': '#C41E3A', 'accent': '#0C2340'},
-    'Arizona Diamondbacks':   {'color': '#A71930', 'accent': '#E3D4AD'},
-    'Colorado Rockies':       {'color': '#33006F', 'accent': '#C4CED4'},
-    'Los Angeles Dodgers':    {'color': '#005A9C', 'accent': '#EF3E42'},
-    'San Diego Padres':       {'color': '#2F241D', 'accent': '#FFC425'},
-    'San Francisco Giants':   {'color': '#FD5A1E', 'accent': '#27251F'},
+    'New York Yankees':       {'color': '#003087', 'accent': '#C4CED4', 'logo': f'{_ESPN}/nyy.png'},
+    'Toronto Blue Jays':      {'color': '#134A8E', 'accent': '#E8291C', 'logo': f'{_ESPN}/tor.png'},
+    'Baltimore Orioles':      {'color': '#DF4601', 'accent': '#000000', 'logo': f'{_ESPN}/bal.png'},
+    'Boston Red Sox':         {'color': '#BD3039', 'accent': '#0C2340', 'logo': f'{_ESPN}/bos.png'},
+    'Tampa Bay Rays':         {'color': '#092C5C', 'accent': '#8FBCE6', 'logo': f'{_ESPN}/tb.png'},
+    'Chicago White Sox':      {'color': '#27251F', 'accent': '#C4CED4', 'logo': f'{_ESPN}/chw.png'},
+    'Cleveland Guardians':    {'color': '#00385D', 'accent': '#E31937', 'logo': f'{_ESPN}/cle.png'},
+    'Detroit Tigers':         {'color': '#0C2340', 'accent': '#FA4616', 'logo': f'{_ESPN}/det.png'},
+    'Kansas City Royals':     {'color': '#004687', 'accent': '#C09A5B', 'logo': f'{_ESPN}/kc.png'},
+    'Minnesota Twins':        {'color': '#002B5C', 'accent': '#D31145', 'logo': f'{_ESPN}/min.png'},
+    'Houston Astros':         {'color': '#002D62', 'accent': '#EB6E1F', 'logo': f'{_ESPN}/hou.png'},
+    'Los Angeles Angels':     {'color': '#003263', 'accent': '#BA0021', 'logo': f'{_ESPN}/laa.png'},
+    'Oakland Athletics':      {'color': '#003831', 'accent': '#EFB21E', 'logo': f'{_ESPN}/oak.png'},
+    'Seattle Mariners':       {'color': '#0C2C56', 'accent': '#005C5C', 'logo': f'{_ESPN}/sea.png'},
+    'Texas Rangers':          {'color': '#003278', 'accent': '#C0111F', 'logo': f'{_ESPN}/tex.png'},
+    'Atlanta Braves':         {'color': '#CE1141', 'accent': '#13274F', 'logo': f'{_ESPN}/atl.png'},
+    'Miami Marlins':          {'color': '#00A3E0', 'accent': '#EF3340', 'logo': f'{_ESPN}/mia.png'},
+    'New York Mets':          {'color': '#002D72', 'accent': '#FF5910', 'logo': f'{_ESPN}/nym.png'},
+    'Philadelphia Phillies':  {'color': '#E81828', 'accent': '#002D72', 'logo': f'{_ESPN}/phi.png'},
+    'Washington Nationals':   {'color': '#AB0003', 'accent': '#14225A', 'logo': f'{_ESPN}/wsh.png'},
+    'Chicago Cubs':           {'color': '#0E3386', 'accent': '#CC3433', 'logo': f'{_ESPN}/chc.png'},
+    'Cincinnati Reds':        {'color': '#C6011F', 'accent': '#000000', 'logo': f'{_ESPN}/cin.png'},
+    'Milwaukee Brewers':      {'color': '#12284B', 'accent': '#FFC52F', 'logo': f'{_ESPN}/mil.png'},
+    'Pittsburgh Pirates':     {'color': '#27251F', 'accent': '#FDB827', 'logo': f'{_ESPN}/pit.png'},
+    'St. Louis Cardinals':    {'color': '#C41E3A', 'accent': '#0C2340', 'logo': f'{_ESPN}/stl.png'},
+    'Arizona Diamondbacks':   {'color': '#A71930', 'accent': '#E3D4AD', 'logo': f'{_ESPN}/ari.png'},
+    'Colorado Rockies':       {'color': '#33006F', 'accent': '#C4CED4', 'logo': f'{_ESPN}/col.png'},
+    'Los Angeles Dodgers':    {'color': '#005A9C', 'accent': '#EF3E42', 'logo': f'{_ESPN}/lad.png'},
+    'San Diego Padres':       {'color': '#2F241D', 'accent': '#FFC425', 'logo': f'{_ESPN}/sd.png'},
+    'San Francisco Giants':   {'color': '#FD5A1E', 'accent': '#27251F', 'logo': f'{_ESPN}/sf.png'},
 }
 
 _WM = 'https://upload.wikimedia.org/wikipedia/en'
@@ -399,7 +417,9 @@ def scrape_mlb_standings(year=None):
             div_name = record.get('division', {}).get('name', '')
             teams = []
             for tr in record.get('teamRecords', []):
-                name = tr.get('team', {}).get('name', '')
+                team_obj = tr.get('team', {})
+                name = team_obj.get('name', '')
+                team_id = team_obj.get('id', 0)
                 info = MLB_TEAM_COLORS.get(name, {'color': '#444', 'accent': '#888'})
                 streak = tr.get('streak', {}).get('streakCode', '')
                 teams.append({
@@ -407,6 +427,7 @@ def scrape_mlb_standings(year=None):
                     'team':     name,
                     'color':    info['color'],
                     'accent':   info['accent'],
+                    'logo':     _logo_url(team_id),
                     'wins':     tr.get('wins', 0),
                     'losses':   tr.get('losses', 0),
                     'games':    tr.get('gamesPlayed', 0),
@@ -453,6 +474,8 @@ def scrape_mlb_games(date=None):
 
                 away_name = away.get('team', {}).get('name', '')
                 home_name = home.get('team', {}).get('name', '')
+                away_id = away.get('team', {}).get('id', 0)
+                home_id = home.get('team', {}).get('id', 0)
 
                 # game time → convert UTC to local +8 (Taiwan)
                 game_utc = g.get('gameDate', '')
@@ -480,6 +503,8 @@ def scrape_mlb_games(date=None):
                     'venue':      g.get('venue', {}).get('name', ''),
                     'away_color': MLB_TEAM_COLORS.get(away_name, {}).get('color', '#444'),
                     'home_color': MLB_TEAM_COLORS.get(home_name, {}).get('color', '#444'),
+                    'away_logo':  _logo_url(away_id),
+                    'home_logo':  _logo_url(home_id),
                 })
 
         now = now_tw().strftime('%Y-%m-%d %H:%M:%S')

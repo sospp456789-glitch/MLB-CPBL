@@ -502,6 +502,8 @@
 
   .mlb-team-name { display: flex; align-items: center; gap: 8px; }
   .mlb-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .mlb-logo { width: 24px; height: 24px; object-fit: contain; flex-shrink: 0; }
+  .game-team-logo { width: 32px; height: 32px; object-fit: contain; flex-shrink: 0; }
 
   @media (max-width: 600px) {
     header { padding: 12px 16px; }
@@ -934,7 +936,7 @@ function renderMlbStandings(divisions) {
             return `<tr>
               <td>
                 <div class="mlb-team-name">
-                  <span class="mlb-dot" style="background:${t.color}"></span>
+                  ${t.logo ? `<img class="mlb-logo" src="${t.logo}" alt="${t.team}" onerror="this.style.display='none'">` : `<span class="mlb-dot" style="background:${t.color}"></span>`}
                   ${t.team}
                 </div>
               </td>
@@ -977,13 +979,13 @@ function renderMlbGames(games) {
       </div>
       <div class="game-matchup">
         <div class="game-team">
-          <span class="game-team-dot" style="background:${g.away_color}"></span>
+          ${g.away_logo ? `<img class="game-team-logo" src="${g.away_logo}" alt="${g.away_team}" onerror="this.style.display='none'">` : `<span class="game-team-dot" style="background:${g.away_color}"></span>`}
           <span class="game-team-name" style="font-size:.78rem">${g.away_team}</span>
           <span class="game-score ${g.away_win?'win':'lose'}">${aScore}</span>
         </div>
         <span class="game-vs">@</span>
         <div class="game-team">
-          <span class="game-team-dot" style="background:${g.home_color}"></span>
+          ${g.home_logo ? `<img class="game-team-logo" src="${g.home_logo}" alt="${g.home_team}" onerror="this.style.display='none'">` : `<span class="game-team-dot" style="background:${g.home_color}"></span>`}
           <span class="game-team-name" style="font-size:.78rem">${g.home_team}</span>
           <span class="game-score ${g.home_win?'win':'lose'}">${hScore}</span>
         </div>

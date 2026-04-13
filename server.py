@@ -703,6 +703,11 @@ def handle_message(event):
             messages=[TextMessage(text=reply)]
         ))
 
+@app.route('/test-notify')
+def test_notify():
+    send_line("🔔 測試通知\nLINE Bot 推播功能正常！\n\n📊 https://cpbl-dashboard.fly.dev")
+    return f"OK - sent to {len(line_user_ids)} users"
+
 @app.route('/debug')
 def debug():
     import os

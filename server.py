@@ -705,8 +705,23 @@ def handle_message(event):
 
 @app.route('/test-notify')
 def test_notify():
-    send_line("🔔 測試通知\nLINE Bot 推播功能正常！\n\n📊 https://cpbl-dashboard.fly.dev")
-    return f"OK - sent to {len(line_user_ids)} users"
+    results = []
+    if not line_user_ids:
+        return "No user IDs stored"
+    with ApiClient(line_config) as api_client:
+        api = MessagingApi(api_client)
+        for uid in line_user_ids:
+            try:
+                api.push_message(PushMessageRequest(
+                    to=uid,
+                    messages=[TextMessage(text="🔔 測試通知\nLINE Bot 推播功能正常！\n\n📊 https://cpbl-dashboard.fly.dev")]
+                ))
+                results.append(f"✅ {uid}: success")
+                print(f"[LINE] push success: {uid}")
+            except Exception as e:
+                results.append(f"❌ {uid}: {e}")
+                print(f"[LINE] push error: {uid}: {e}")
+    return "<br>".join(results)
 
 @app.route('/debug')
 def debug():

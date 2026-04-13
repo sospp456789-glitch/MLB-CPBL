@@ -8,7 +8,7 @@ import json
 import re
 from datetime import datetime, timezone, timedelta
 from linebot.v3 import WebhookHandler
-from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, PushMessageRequest, TextMessage
+from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, PushMessageRequest, ReplyMessageRequest, TextMessage
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
 from linebot.v3.exceptions import InvalidSignatureError
 
@@ -591,6 +591,18 @@ def background_updater():
             check_mlb_game_changes(mlb_store['games'])
 
 
+# ── 啟動初始化（Gunicorn 也會執行）────────────────────────────────────────────
+print("[STARTUP] Initializing data...")
+scrape_all()
+scrape_games()
+scrape_mlb_standings()
+scrape_mlb_games()
+
+_bg_thread = threading.Thread(target=background_updater, daemon=True)
+_bg_thread.start()
+print("[STARTUP] Background updater started.")
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route('/webhook', methods=['POST'])
@@ -683,10 +695,11 @@ def handle_message(event):
             )
 
     print(f"[LINE] User: {uid}, msg: {text}")
+    # 使用 reply_message（免費無限次），不消耗 push 額度
     with ApiClient(line_config) as api_client:
         api = MessagingApi(api_client)
-        api.push_message(PushMessageRequest(
-            to=uid,
+        api.reply_message(ReplyMessageRequest(
+            reply_token=event.reply_token,
             messages=[TextMessage(text=reply)]
         ))
 
@@ -739,12 +752,6 @@ def api_mlb_refresh():
 
 
 if __name__ == '__main__':
-    scrape_all()
-    scrape_games()
-    scrape_mlb_standings()
-    scrape_mlb_games()
-    t = threading.Thread(target=background_updater, daemon=True)
-    t.start()
     print("CPBL Dashboard → http://127.0.0.1:8080")
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port, debug=False)

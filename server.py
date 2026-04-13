@@ -533,7 +533,7 @@ def check_game_changes(new_games):
                 f"⚾ CPBL 開打通知\n"
                 f"{g['visit_team']} vs {g['home_team']}\n"
                 f"📍 {g['field']}\n\n"
-                f"📊 查看完整看板：\nhttps://web-production-d5d20.up.railway.app"
+                f"📊 查看完整看板：\nhttps://cpbl-dashboard.fly.dev"
             )
             send_line(msg)
 
@@ -546,7 +546,7 @@ def check_game_changes(new_games):
                 f"🏆 勝利：{winner}\n"
                 f"勝投：{g['win_pitcher']} ／ 敗投：{g['lose_pitcher']}\n"
                 f"MVP：{g['mvp']}\n\n"
-                f"📊 查看完整看板：\nhttps://web-production-d5d20.up.railway.app"
+                f"📊 查看完整看板：\nhttps://cpbl-dashboard.fly.dev"
             )
             send_line(msg)
 
@@ -569,7 +569,7 @@ def check_mlb_game_changes(new_games):
                 f"{g['away_team']} {away_score} - {home_score} {g['home_team']}\n"
                 f"🏆 勝利：{winner}\n"
                 f"📍 {g['venue']}\n\n"
-                f"📊 查看完整看板：\nhttps://web-production-d5d20.up.railway.app"
+                f"📊 查看完整看板：\nhttps://cpbl-dashboard.fly.dev"
             )
             send_line(msg)
         prev_mlb_game_states[key] = g
@@ -634,7 +634,7 @@ def get_cpbl_schedule_text():
         lines.append(f"{g['visit_team']} vs {g['home_team']}")
         lines.append(f"{status}　📍{g['field']}\n")
     lines.append(f"📊 {data_store.get('last_updated','')[:10]}")
-    lines.append('https://web-production-d5d20.up.railway.app')
+    lines.append('https://cpbl-dashboard.fly.dev')
     return '\n'.join(lines)
 
 
@@ -656,7 +656,7 @@ def get_mlb_schedule_text():
             status = f"🕐 {g['time']}"
         lines.append(f"{g['away_team']} @ {g['home_team']}")
         lines.append(f"{status}\n")
-    lines.append('https://web-production-d5d20.up.railway.app')
+    lines.append('https://cpbl-dashboard.fly.dev')
     return '\n'.join(lines)
 
 
@@ -685,7 +685,7 @@ def handle_message(event):
                 "你可以傳送：\n"
                 "・「CPBL賽程」→ 今日中華職棒\n"
                 "・「MLB賽程」→ 今日美國職棒\n\n"
-                "📊 https://web-production-d5d20.up.railway.app"
+                "📊 https://cpbl-dashboard.fly.dev"
             )
         else:
             reply = (

@@ -32,7 +32,7 @@ LINE_TOKEN  = os.environ.get('LINE_TOKEN',  '9X2wPChNY6eiNhnHjUSYO94+F+yQaNPaZxO
 line_handler = WebhookHandler(LINE_SECRET)
 line_config  = Configuration(access_token=LINE_TOKEN)
 
-USER_IDS_FILE = 'line_user_ids.json'
+USER_IDS_FILE = '/data/line_user_ids.json'
 
 def load_user_ids():
     try:

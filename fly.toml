@@ -1,3 +1,5 @@
+app = "cpbl-dashboard"
+
 [build]
 
 [http_service]
